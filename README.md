@@ -5,10 +5,11 @@
 ### Concept: Reactor Inspection
 
 A bright, clean energy exhibit in an open-air pavilion. A white-and-gold reactor
-stands at the center of a pale circular platform, while a small inspection drone
-flies around it. The visual direction is a premium technology showroom: simple
-shapes, satin ceramic, polished metal, a bright sky, and restrained cyan accents.
-Surface detail comes from manufactured panels, grooves, and markings.
+stands at the center of a white marble circular platform, while a small
+inspection drone flies around it. The visual direction is a premium technology
+showroom: simple shapes, polished marble with subtle grey veins, satin ceramic,
+gold trim, a bright sky, and restrained cyan accents. Manufactured panels,
+grooves, and markings add detail to the reactor and drone.
 
 The scene runs automatically in one application. Camera presets and independent
 UI controls let us inspect each graphics technique, pause the scene, and capture
@@ -18,12 +19,16 @@ than a list of features already implemented.
 ### Layout and animation
 
 - **Exhibit platform:** approximately 12 m across, raised slightly above a broad,
-  pale ground plane. Its paneled surface receives shadows from the reactor and
-  drone.
-- **Reactor:** approximately 3.5 m tall, with a cylindrical pedestal, a luminous
-  cyan core, a dark inner recess, white housing panels, three gold rings, and
-  three structural supports. One outward-facing panel prominently displays
-  normal-mapped grooves, screw heads, and an embossed emblem.
+  pale ground plane. Its polished white marble top has restrained grey veining
+  and a narrow gold outer edge. It receives shadows from the reactor and drone.
+- **Reactor:** approximately 3.5 m tall, with a white marble cylindrical pedestal
+  and gold collar, a luminous cyan core, a dark inner recess, white ceramic
+  housing panels, three gold rings, and three structural supports. One
+  outward-facing panel prominently displays a blue TU Delft logo with a shallow,
+  beveled, embossed appearance produced by its normal map, alongside grooves and
+  screw heads. Keep the area around the logo uncluttered and frame it clearly in
+  the showcase and material close-up views. The pedestal provides a close-up of
+  marble beside gold.
 - **Inspection drone:** approximately 1.2 m wide, with a white body, gold trim,
   four rotor assemblies, and a dark articulated sensor. It follows a closed loop
   around the reactor, approximately 3–4.5 m from its center, with gentle changes
@@ -58,10 +63,10 @@ and tangent data where normal maps are used.
 | Object | Required parts | Construction / animation |
 | --- | --- | --- |
 | Ground | One broad ground plane | Static plane with a uniform pale material. |
-| Exhibit platform | Circular base, top surface, narrow metallic edge | Static cylinders/discs; textured top surface. |
-| Reactor pedestal | Base cylinder and metallic collar | Static cylinders. |
+| Exhibit platform | Circular base, marble top surface, narrow gold edge | Static cylinders/discs; marble texture on the top and a separate metallic material on the edge. |
+| Reactor pedestal | Marble base cylinder and gold collar | Static cylinders; shares the platform's marble texture set at a consistent world-space scale. |
 | Reactor core | Cyan inner cylinder and dark backing/recess | Static geometry with an emissive core material. |
-| Reactor housing | Three white outer panels and one visible detail panel | Simple curved panels or box-like sections; detail panel has readable UVs for grooves and markings. |
+| Reactor housing | Three white outer panels and one visible detail panel bearing the TU Delft logo | Simple curved panels or box-like sections; detail panel has readable UVs for the colored logo, its normal-mapped bevels, grooves, and markings. |
 | Reactor structure | Three gold rings and three supports | Static annular meshes and box/cylinder supports. |
 | Drone body | Main shell, trim, and four rotor mounts | Root object follows the path; all other drone parts inherit its transform. |
 | Drone rotors | Four hubs and four two-blade assemblies | Each blade assembly spins relative to its mount; blade shape makes rotation visible. |
@@ -83,12 +88,13 @@ emissive surfaces can use constant material parameters instead of extra images.
 
 | Planned file | Purpose |
 | --- | --- |
-| `assets/textures/platform_basecolor.png` | Pale floor-panel layout and clean exhibit markings. |
-| `assets/textures/platform_roughness.png` | Roughness differences between panel surfaces and inset strips. |
-| `assets/textures/platform_normal.png` | Shallow seams and manufactured floor detail. |
-| `assets/textures/reactor_basecolor.png` | White housing panels, an emblem, and diagnostic labels. |
+| `assets/textures/marble_basecolor.png` | Polished white marble with subtle grey veins, shared by the platform top and reactor pedestal. |
+| `assets/textures/marble_roughness.png` | Low roughness with subtle natural variation across the marble. |
+| `assets/textures/marble_normal.png` (optional) | Very fine surface detail; veins remain color patterns rather than deep grooves. A flat normal is sufficient initially. |
+| `assets/source/tu_delft_logo.svg` | Vector source for the logo's color artwork and beveled height pattern; source and authorship recorded in `assets/README.md`. |
+| `assets/textures/reactor_basecolor.png` | White housing panels, the blue TU Delft logo, and diagnostic labels. |
 | `assets/textures/reactor_roughness.png` | Satin housing surfaces and smoother selected details. |
-| `assets/textures/reactor_normal.png` | Recessed grooves, screw heads, and embossed detail; especially clear on the detail panel. |
+| `assets/textures/reactor_normal.png` | Shallow beveled relief for the TU Delft logo, recessed grooves, and screw heads; especially clear on the detail panel. |
 | `assets/textures/drone_basecolor.png` | White shell, colored identification markings, and small labels. |
 | `assets/textures/drone_roughness.png` | Surface-finish variation across the shell and trim regions. |
 | `assets/textures/drone_normal.png` | Panel seams and small manufactured details. |
@@ -97,9 +103,19 @@ emissive surfaces can use constant material parameters instead of extra images.
 | `assets/README.md` | Asset inventory, authorship, source links, licenses, and modifications, including our own generated assets. |
 
 Base-color textures use sRGB color interpretation; roughness and normal maps are
-linear data. Normal maps use a consistent tangent-space convention. Ceramic,
-gold, aluminium, and dark sensor materials have separate metallic/roughness
-defaults so they remain distinct when texture sampling is disabled.
+linear data. Normal maps use a consistent tangent-space convention. Marble,
+ceramic, gold, aluminium, and dark sensor materials have separate
+metallic/roughness defaults so they remain distinct when texture sampling is
+disabled. Marble is a nonmetallic, opaque PBR material; its polished finish
+contrasts with the satin ceramic housing. Gold trim uses separate geometry and a
+metallic material, keeping the marble texture set simple.
+
+For the TU Delft logo, derive a shallow beveled height pattern from the vector
+outline, convert it to tangent-space normals, and combine it into the reactor
+normal map. Align the blue artwork in the base-color texture with that relief.
+The logo's apparent depth comes from shading on the existing panel geometry;
+normal mapping leaves its silhouette unchanged. With normal mapping disabled,
+the blue logo remains visible as a flat printed design.
 
 #### Other required scene data and rendering resources
 
@@ -128,9 +144,9 @@ defaults so they remain distinct when texture sampling is disabled.
 | Feature | Where it appears | How we show it / UI controls |
 | --- | --- | --- |
 | Multiple viewpoints | The platform, flight route, drone, and reactor details. | Switch between showcase, overhead, follow, and close-up camera presets while the same scene runs. |
-| Advanced shading: PBR | White ceramic, polished gold rings, aluminium supports, and the dark sensor. Curved surfaces expose highlight shape and material differences. | Compare PBR against the simple reference shading mode at a fixed camera, light setup, and exposure. |
-| Material textures | Platform panels, reactor labels, drone markings, and spatial roughness variation. | Toggle material textures against constant material values. Keep normal mapping separately controllable. |
-| Normal mapping | Reactor detail panel, platform seams, and drone panel detail. | In the reactor close-up, toggle normal mapping. Apparent grooves and screw heads flatten while the mesh silhouette stays unchanged. |
+| Advanced shading: PBR | Polished marble beside gold trim, white ceramic, gold reactor rings, aluminium supports, and the dark sensor. Curved surfaces expose highlight shape and material differences. | Compare PBR against the simple reference shading mode at a fixed camera, light setup, and exposure. Include the marble pedestal and gold collar in a material close-up. |
+| Material textures | Marble veining on the platform and pedestal, reactor labels, drone markings, and spatial roughness variation. | Toggle material textures against constant material values. Marble veins and printed markings disappear, and roughness becomes uniform per material. Keep normal mapping separately controllable. |
+| Normal mapping | Embossed TU Delft logo, grooves, and screw heads on the reactor detail panel, plus drone panel detail. | In the reactor close-up, toggle normal mapping while keeping material textures enabled. The logo changes from apparently raised and beveled to flat printed blue artwork; grooves and screw heads flatten too, while the mesh silhouette stays unchanged. |
 | Environment mapping | Gold reactor rings and metallic drone trim reflect the sky and distant environment. | Move the camera around the curved metal and toggle its environment-reflection contribution. Keep the background and direct lighting visible. |
 | Smooth paths using at least three cubic Bézier curves | The drone flies a closed route comprising four smoothly joined cubic segments. | Toggle path movement and the rendered curve independently. The overhead view exposes the route; the showcase view exposes height changes. |
 | Hierarchical transformations | Drone body → rotor mounts → spinning blades, and body → turning sensor mount → tilting sensor head. | Pause route movement while component animation continues, then toggle component animation separately. Use the drone close-up to show the nested motion. |
