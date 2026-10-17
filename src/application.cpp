@@ -67,7 +67,6 @@ public:
 
     void update()
     {
-        int dummyInteger = 0; // Initialized to 0
         while (!m_window.shouldClose()) {
             // This is your game loop
             // Put your real-time logic and rendering in here
@@ -84,17 +83,7 @@ public:
             const float aspectRatio = static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y);
             m_projectionMatrix = glm::perspective(glm::radians(80.0f), aspectRatio, 0.1f, 30.0f);
 
-            // Use ImGui for easy input/output of ints, floats, strings, etc...
-            ImGui::Begin("Window", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-            ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
-            float uiScale = m_window.getUiScale();
-            if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
-                m_window.setUiScale(uiScale);
-            ImGui::Separator();
-            ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
-            ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
-            ImGui::Checkbox("Use material if no texture", &m_useMaterial);
-            ImGui::End();
+            drawUi();
 
             // Clear the screen
             glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
@@ -170,6 +159,21 @@ public:
     }
 
 private:
+    void drawUi()
+    {
+        // Use ImGui for easy input/output of ints, floats, strings, etc...
+        ImGui::Begin("Window", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
+        float uiScale = m_window.getUiScale();
+        if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
+            m_window.setUiScale(uiScale);
+        ImGui::Separator();
+        ImGui::InputInt("This is an integer input", &m_dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
+        ImGui::Text("Value is: %i", m_dummyInteger); // Use C printf formatting rules (%i is a signed integer)
+        ImGui::Checkbox("Use material if no texture", &m_useMaterial);
+        ImGui::End();
+    }
+
     Window m_window;
 
     // Shader for default rendering and for depth rendering
@@ -179,6 +183,7 @@ private:
     std::vector<GPUMesh> m_meshes;
     Texture m_texture;
     bool m_useMaterial { true };
+    int m_dummyInteger { 0 };
 
     // Projection and view matrices for you to fill in and use
     glm::mat4 m_projectionMatrix { 1.0f };
