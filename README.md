@@ -56,29 +56,69 @@ platform.
 
 #### Models and geometry
 
-Build the following objects from reusable primitives in code. No external model
-files are needed for the planned scene. Meshes need normals, texture coordinates,
-and tangent data where normal maps are used.
+Create the scene models in Blender or obtain suitable models online, then use
+Blender to prepare their geometry, materials, scale, and UVs. UVs describe how 2D
+texture images map onto each model's surface. Export meshes as OBJ files and
+textures as separate PNG images for the application to load.
+
+The drone's individual parts are also authored assets. Its parent–child hierarchy,
+local transforms, and animation are constructed in application code to satisfy
+the hierarchical-transformation requirement. Export its moving parts separately
+with appropriate rotation pivots.
 
 | Object | Required parts | Construction / animation |
 | --- | --- | --- |
 | Ground | One broad ground plane | Static plane with a uniform pale material. |
-| Exhibit platform | Circular base, marble top surface, narrow gold edge | Static cylinders/discs; marble texture on the top and a separate metallic material on the edge. |
-| Reactor pedestal | Marble base cylinder and gold collar | Static cylinders; shares the platform's marble texture set at a consistent world-space scale. |
-| Reactor core | Cyan inner cylinder and dark backing/recess | Static geometry with an emissive core material. |
-| Reactor housing | Three white outer panels and one visible detail panel bearing the TU Delft logo | Simple curved panels or box-like sections; detail panel has readable UVs for the colored logo, its normal-mapped bevels, grooves, and markings. |
-| Reactor structure | Three gold rings and three supports | Static annular meshes and box/cylinder supports. |
-| Drone body | Main shell, trim, and four rotor mounts | Root object follows the path; all other drone parts inherit its transform. |
-| Drone rotors | Four hubs and four two-blade assemblies | Each blade assembly spins relative to its mount; blade shape makes rotation visible. |
-| Drone sensor | Turning mount, tilting head, and dark lens | Nested transforms: body → turning mount → tilting head; lens follows the head. |
-| Showcase lamp | Mast, overhead arm, lamp housing, luminous face | Static boxes/cylinders; spotlight position and direction match the fixture. |
-| Sky background | Camera-centered cube | Samples the environment cubemap. |
-| Energy particles | Reusable camera-facing quad | Particle instances have position, velocity, age, size, and opacity. |
+| Exhibit platform | Circular base, marble top surface, narrow gold edge | Authored static mesh with small edge bevels; marble top and gold edge have separate material assignments. |
+| Reactor pedestal | Marble base cylinder and gold collar | Part of the authored reactor asset; shares the platform's marble texture set at a consistent world-space scale. |
+| Reactor core | Cyan inner cylinder and dark backing/recess | Part of the authored reactor asset; core has an emissive material. |
+| Reactor housing | Three white outer panels and one visible detail panel bearing the TU Delft logo | Authored panels with readable UVs for the colored logo, its normal-mapped bevels, grooves, and markings. |
+| Reactor structure | Three gold rings and three supports | Static parts included in the reactor asset, with beveled exposed edges. |
+| Drone body | Main shell, trim, four rotor mounts, and fixed hubs | Authored body mesh; its root transform follows the path and is inherited by the other parts through a hierarchy built in code. |
+| Drone rotors | Four two-blade assemblies | One authored blade-assembly mesh reused four times; code spins each instance around its mount. Blade shape makes rotation visible. |
+| Drone sensor | Turning mount, tilting head, and dark lens | Separate mount and head meshes; code constructs body → turning mount → tilting head, with the lens included in the head mesh. |
+| Showcase lamp | Mast, overhead arm, lamp housing, luminous face | Authored static mesh; the spotlight created in code matches the fixture's position and direction. |
+| Sky background | Camera-centered cube | Small code-generated rendering helper that samples the environment cubemap. |
+| Energy particles | Reusable camera-facing quad | Code-generated rendering helper; particle instances have position, velocity, age, size, and opacity. |
 | Path visualization | Sampled line along the four Bézier segments | Generated from the actual flight path; UI-controlled visibility. |
 
-Required reusable mesh shapes are a plane/quad, box, cylinder/disc, annular ring,
-and curved panel section. The drone hierarchy and its animation must be assembled
-in code, including if individual mesh construction is later changed.
+The ground plane, skybox cube, particle quads, and path lines are simple rendering
+helpers generated in code. The exhibit and drone geometry come from asset files.
+
+#### Model exports and editable source files
+
+Keep editable originals in `assets/source/`, exported meshes in `assets/models/`,
+and exported textures in `assets/textures/`. Use one Blender file per major asset
+so the two group members can work on different assets independently. Keep source
+files and exports in version control; the application loads the exported meshes
+and images without requiring Blender at runtime.
+
+| Planned file | Contents / use |
+| --- | --- |
+| `assets/source/platform.blend` | Editable platform geometry, UVs, marble/gold material setup, and texture-baking setup. |
+| `assets/source/reactor.blend` | Editable reactor, pedestal, and detail panel, including the detailed logo geometry used for baking. |
+| `assets/source/drone.blend` | Editable body, rotor, sensor mount, and sensor head meshes, with reference positions and pivots for assembly. |
+| `assets/source/showcase_lamp.blend` | Editable lamp geometry and material assignments. |
+| `assets/source/tu_delft_logo.svg` | Vector source for the logo artwork and beveled relief; source and authorship recorded in `assets/README.md`. |
+| `assets/models/platform.obj` | Static platform, with material groups for its marble top, base, and gold edge. |
+| `assets/models/reactor.obj` | Static reactor assembly: pedestal, collar, core, recess, panels, rings, and supports, with named material groups. |
+| `assets/models/showcase_lamp.obj` | Static fixture with separate housing and emissive-face material groups. |
+| `assets/models/drone_body.obj` | Shell, trim, fixed rotor mounts, and hubs. |
+| `assets/models/drone_rotor.obj` | One two-blade assembly centered on its rotation pivot, instantiated four times. |
+| `assets/models/drone_sensor_mount.obj` | Turning sensor mount centered on its yaw pivot. |
+| `assets/models/drone_sensor_head.obj` | Tilting sensor head and lens, centered on its tilt pivot. |
+
+OBJ files contain mesh coordinates rather than Blender's object origins or
+parenting. Export each moving drone part with its pivot at `(0, 0, 0)` in its mesh
+coordinates, and define its assembly offset relative to its parent in code.
+
+Retain matching `.mtl` companions produced by OBJ export: `platform.mtl`,
+`reactor.mtl`, `showcase_lamp.mtl`, `drone_body.mtl`, `drone_rotor.mtl`,
+`drone_sensor_mount.mtl`, and `drone_sensor_head.mtl`, alongside their OBJ files.
+Use material names to assign our PBR parameters and texture sets in the
+application; Blender shader-node graphs are baked into images rather than
+reconstructed from the MTL files. Record online asset sources, authors, licenses,
+and any modifications in `assets/README.md` for attribution in the report.
 
 #### Texture and environment files
 
@@ -91,7 +131,6 @@ emissive surfaces can use constant material parameters instead of extra images.
 | `assets/textures/marble_basecolor.png` | Polished white marble with subtle grey veins, shared by the platform top and reactor pedestal. |
 | `assets/textures/marble_roughness.png` | Low roughness with subtle natural variation across the marble. |
 | `assets/textures/marble_normal.png` (optional) | Very fine surface detail; veins remain color patterns rather than deep grooves. A flat normal is sufficient initially. |
-| `assets/source/tu_delft_logo.svg` | Vector source for the logo's color artwork and beveled height pattern; source and authorship recorded in `assets/README.md`. |
 | `assets/textures/reactor_basecolor.png` | White housing panels, the blue TU Delft logo, and diagnostic labels. |
 | `assets/textures/reactor_roughness.png` | Satin housing surfaces and smoother selected details. |
 | `assets/textures/reactor_normal.png` | Shallow beveled relief for the TU Delft logo, recessed grooves, and screw heads; especially clear on the detail panel. |
@@ -110,18 +149,46 @@ disabled. Marble is a nonmetallic, opaque PBR material; its polished finish
 contrasts with the satin ceramic housing. Gold trim uses separate geometry and a
 metallic material, keeping the marble texture set simple.
 
-For the TU Delft logo, derive a shallow beveled height pattern from the vector
-outline, convert it to tangent-space normals, and combine it into the reactor
-normal map. Align the blue artwork in the base-color texture with that relief.
-The logo's apparent depth comes from shading on the existing panel geometry;
-normal mapping leaves its silhouette unchanged. With normal mapping disabled,
+For the TU Delft logo, use the vector outline to create shallow raised geometry
+with beveled edges in Blender. Bake the detailed panel's tangent-space normals
+onto the simple, UV-mapped runtime panel and combine its other details into the
+same reactor normal map. Align the blue artwork in the base-color texture with
+that relief. The runtime logo's apparent depth comes from normal mapping on the
+simple panel, leaving its silhouette unchanged. With normal mapping disabled,
 the blue logo remains visible as a flat printed design.
+
+#### Asset preparation and first milestone
+
+1. **Validate one asset end to end first:** create a small marble pedestal with a
+   gold collar and a TU Delft detail panel in Blender. Use `reactor.blend` and the
+   reactor export paths for this initial version, then expand it into the full
+   reactor after the pipeline works.
+2. **Prepare UVs and materials:** unwrap the model so the color, roughness, and
+   normal textures align. Keep the logo readable and marble vein scale consistent
+   between surfaces. Author materials or adapt suitable online texture sets.
+3. **Bake textures:** export base color without lighting or shadows, roughness as
+   linear data, and normal maps in tangent space. Bake procedural Blender
+   materials into images using the planned texture paths.
+4. **Export meshes:** use meters and a consistent Y-up axis convention, apply
+   object rotation/scale, and center moving-part mesh coordinates on their pivots.
+   Export triangulated geometry with normals, UVs, and named material groups.
+   Bake normal maps against the same triangulated mesh and shading normals that
+   will be exported.
+5. **Verify in the application:** load the OBJ and texture files, generate the
+   tangent basis from the mesh normals/UVs using conventions matching the bake,
+   and check scale, orientation, material assignments, pivots, and normal-map
+   direction. Confirm the logo's normal-map toggle works and that the marble and
+   gold read as distinct materials.
+6. **Build out the inventory:** use the verified conventions for the full reactor,
+   platform, lamp, and separate drone parts. Keep editable Blender sources and
+   exports synchronized as assets change.
 
 #### Other required scene data and rendering resources
 
-- **Scene data in code:** object transforms, material assignments, light
-  settings, four Bézier segments, and camera presets. Separate model, animation,
-  and scene-configuration files are not required for this scope.
+- **Asset loading and scene data:** load the model and texture files, then define
+  object placement, material assignments, light settings, four Bézier segments,
+  and camera presets in code. Construct the drone's parent–child relationships,
+  pivot offsets, and component animation in code from its separate mesh assets.
 - **Camera presets:** whole-scene showcase, overhead route view, drone-follow
   view, reactor material close-up, and drone mechanism close-up.
 - **Material rendering:** PBR shading, an independently selectable simple
@@ -134,10 +201,11 @@ the blue logo remains visible as a flat printed design.
   the drone moves; share the depth-rendering code between the lights.
 - **Effect rendering:** particle billboards, a path-line renderer, and an HDR
   scene target followed by bright-region extraction, blur, and bloom composition.
-- **Runtime-generated data:** primitive meshes, the path samples, the cumulative
-  distance lookup table for constant-speed motion, particles, environment maps,
-  shadow maps, and post-processing buffers. These are generated resources rather
-  than additional asset files to download or commit.
+- **Runtime-generated data:** rendering-helper meshes, tangent data for imported
+  meshes, path samples, the cumulative distance lookup table for constant-speed
+  motion, particles, environment maps, shadow maps, and post-processing buffers.
+  These are generated resources rather than additional asset files to download or
+  commit.
 
 ### Planned mandatory features
 
@@ -149,7 +217,7 @@ the blue logo remains visible as a flat printed design.
 | Normal mapping | Embossed TU Delft logo, grooves, and screw heads on the reactor detail panel, plus drone panel detail. | In the reactor close-up, toggle normal mapping while keeping material textures enabled. The logo changes from apparently raised and beveled to flat printed blue artwork; grooves and screw heads flatten too, while the mesh silhouette stays unchanged. |
 | Environment mapping | Gold reactor rings and metallic drone trim reflect the sky and distant environment. | Move the camera around the curved metal and toggle its environment-reflection contribution. Keep the background and direct lighting visible. |
 | Smooth paths using at least three cubic Bézier curves | The drone flies a closed route comprising four smoothly joined cubic segments. | Toggle path movement and the rendered curve independently. The overhead view exposes the route; the showcase view exposes height changes. |
-| Hierarchical transformations | Drone body → rotor mounts → spinning blades, and body → turning sensor mount → tilting sensor head. | Pause route movement while component animation continues, then toggle component animation separately. Use the drone close-up to show the nested motion. |
+| Hierarchical transformations | Code-assembled drone body → rotor mounts → spinning blades, and body → turning sensor mount → tilting sensor head, using separately loaded mesh assets. | Pause route movement while component animation continues, then toggle component animation separately. Use the drone close-up to show the nested motion. |
 
 ### Planned extra features
 
