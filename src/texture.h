@@ -5,9 +5,10 @@
 
 struct Image;
 
+// what encoding are the rgb value sof the source image
 enum class TextureColorSpace {
-    Linear,
-    Srgb
+    Linear, // already linear rgb
+    Srgb    // srgb
 };
 
 struct ImageLoadingException : public std::runtime_error {

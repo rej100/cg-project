@@ -17,6 +17,7 @@ GPUMaterial::GPUMaterial(const Material& material) :
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
     : m_materialName(cpuMesh.material.name)
 {
+    // our base color textures should be srgb
     if (cpuMesh.material.kdTexture)
         m_baseColorTexture.emplace(*cpuMesh.material.kdTexture, TextureColorSpace::Srgb);
 

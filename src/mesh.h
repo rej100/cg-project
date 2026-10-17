@@ -22,7 +22,7 @@ struct MeshLoadingException : public std::runtime_error {
 struct GPUMaterial {
     GPUMaterial(const Material& material);
 
-    alignas(16) glm::vec3 kd { 1.0f };
+    alignas(16) glm::vec3 kd { 1.0f }; // linear rgb from Material::kd.
     alignas(16) glm::vec3 ks { 0.0f };
     float shininess { 1.0f };
     float transparency { 1.0f };

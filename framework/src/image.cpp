@@ -28,6 +28,8 @@ Image::Image(const std::filesystem::path& filePath)
 	}
 
 	const auto filePathStr = filePath.string(); // Create l-value so c_str() is safe.
+
+	// can be linear rgb or srgb
 	stbi_uc* stbPixels = stbi_load(filePathStr.c_str(), &width, &height, &channels, STBI_default);
 
 	if (!stbPixels) {

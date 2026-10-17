@@ -23,7 +23,7 @@ struct Vertex {
 
 struct Material {
 	std::string name { "default" };
-	glm::vec3 kd; // Diffuse color
+	glm::vec3 kd; // linear rgb
 	glm::vec3 ks{ 0.0f };
 	float shininess{ 1.0f };
 	float transparency{ 1.0f };

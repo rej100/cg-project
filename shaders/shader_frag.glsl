@@ -2,12 +2,13 @@
 
 layout(std140) uniform Material // Must match the GPUMaterial defined in src/mesh.h
 {
-    vec3 kd;
+    vec3 kd; // Linear RGB, supplied by the material uniform buffer.
     vec3 ks;
     float shininess;
     float transparency;
 };
 
+// can be stored as srgb on gpu but  texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
 uniform bool hasBaseColorTexture;
 uniform vec3 directionToLight; // World-space direction from the surface toward the light.
@@ -23,6 +24,7 @@ const int SHADING_LIT = 0;
 const int SHADING_BASE_COLOR = 1;
 const int SHADING_NORMALS = 2;
 
+// input and output are linear rgb
 vec3 shadeDiffuse(vec3 baseColor, vec3 normal)
 {
     const float ambient = 0.25;
@@ -31,11 +33,15 @@ vec3 shadeDiffuse(vec3 baseColor, vec3 normal)
     return baseColor * (ambient + lightStrength * diffuse);
 }
 
+// convert linear rgb to srgb for display (copied)
 vec3 linearToSrgb(vec3 color)
 {
     color = max(color, vec3(0.0));
+
     vec3 low = 12.92 * color;
     vec3 high = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
+
+    // Select the appropriate branch independently for R, G, and B.
     return mix(high, low, lessThanEqual(color, vec3(0.0031308)));
 }
 
@@ -44,12 +50,15 @@ void main()
     vec3 normal = normalize(fragNormal);
     if (shadingMode == SHADING_NORMALS) {
         // change normal xyz from [-1, 1] to [0, 1] for RGB
+        // Diagnostic display RGB; bypass the linear-light material/lighting path.
         fragColor = vec4(normal * 0.5 + 0.5, 1.0);
         return;
     }
 
-    // sRGB textures are decoded by OpenGL; constant material colors are already linear.
+    // Linear RGB: texture sampling decodes sRGB; kd is supplied as linear.
     vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
+    // Linear RGB, whether lighting is applied or bypassed.
     vec3 color = shadingMode == SHADING_LIT ? shadeDiffuse(baseColor, normal) : baseColor;
+    // sRGB-encoded RGB for our manual-encoding window-output path; alpha is opaque.
     fragColor = vec4(linearToSrgb(color), 1.0);
 }

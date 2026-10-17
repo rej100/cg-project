@@ -127,6 +127,7 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
             } else {
                 const auto& objMaterial = inMaterials[materialID];
                 mesh.material.name = objMaterial.name;
+                // linear rgb kd from assets
                 mesh.material.kd = construct_vec3(objMaterial.diffuse);
                 if (!objMaterial.diffuse_texname.empty()) {
                     mesh.material.kdTexture = std::make_shared<Image>(baseDir / objMaterial.diffuse_texname);

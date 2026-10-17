@@ -12,7 +12,8 @@ Texture::Texture(const std::filesystem::path& filePath, TextureColorSpace colorS
 
 Texture::Texture(const Image& image, TextureColorSpace colorSpace)
 {
-    // ad
+    // before uploading the texture to the gpu we need to tell opengl if the values are linear rgb or srgb
+    // so so if the values in image are srgb, colorSpace needs to be TextureColorSpace:Srgb and vice versa
     if (colorSpace == TextureColorSpace::Srgb && image.channels != 3 && image.channels != 4)
         throw ImageLoadingException("sRGB textures require RGB or RGBA image data");
 
@@ -29,6 +30,7 @@ Texture::Texture(const Image& image, TextureColorSpace colorSpace)
         break;
     case 4:
         format = GL_RGBA;
+        // An sRGB RGBA format decodes RGB only; alpha is not sRGB-encoded.
         internalFormat = colorSpace == TextureColorSpace::Srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
         break;
     default:
@@ -54,6 +56,7 @@ Texture::Texture(const Image& image, TextureColorSpace colorSpace)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     // Trilinear minification and bilinear magnification.
+    // GL_LINEAR is sample interpolation here not rgb encoding
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 

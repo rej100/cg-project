@@ -118,8 +118,11 @@ private:
 
     void renderScene()
     {
-        // The scene shader encodes sRGB itself; ImGui also supplies display-space colors.
+        
+        // ImGui supplies srgb so we make shader supply srgb as well
+        // and disable automatic encoding for the framebuffer
         glDisable(GL_FRAMEBUFFER_SRGB);
+        // srgb for the background
         glClearColor(0.84f, 0.87f, 0.90f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
