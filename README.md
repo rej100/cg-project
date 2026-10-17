@@ -60,6 +60,29 @@ The current starter opens a window titled **Final Project**, loads
 `resources/dragon.obj`, and uses `resources/checkerboard.png`. The authored
 platform asset is ready for integration into the application.
 
+### Window size and UI scaling
+
+- The application starts **maximized**. Restore it using the window decorations
+  to use its initial **1600 × 900** window size, then resize it normally.
+- The rendering viewport and camera aspect ratio follow the actual framebuffer
+  dimensions, preserving the scene's proportions as the window changes size.
+  Rendering pauses while minimized and resumes when the window is restored.
+- ImGui uses the operating system's DPI/content scale, with an **18-pixel base
+  font at 100% scale**. For example, a detected display scale of 2× produces a
+  36-pixel font with the default UI setting. The startup console reports both
+  the detected scale and initial font size.
+- The **Window** panel shows **Display scale** and provides a **UI scale** slider
+  from **0.75× to 2.0×** for personal adjustment. This multiplier starts at 1.0×
+  each launch and applies on top of the detected display scale:
+
+  ```text
+  Font size = 18 px × display scale × UI scale
+  ```
+
+- Font glyphs are rasterized at the requested size, and widget spacing scales
+  with them. When the slider changes or GLFW reports a new display scale, the
+  font texture and layout are rebuilt between frames.
+
 The root `build/` directory and generated `imgui.ini` window-layout file are
 ignored by Git.
 
