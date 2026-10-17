@@ -1,5 +1,68 @@
 # 3DCGA Project
 
+## How to run
+
+### Requirements
+
+- A C++20 compiler, such as GCC.
+- CMake 3.14 or newer.
+- Ninja for the terminal workflow below.
+- OpenGL 4.1 support, the platform's OpenGL/window-system development libraries,
+  and a graphical desktop session.
+- For the VS Code workflow: the CMake Tools extension.
+
+### From the terminal (Linux)
+
+Run these commands from the repository root, which contains `CMakeLists.txt`:
+
+```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --target Master_TechDemo
+./build/Master_TechDemo
+```
+
+The first command configures the project by generating build files in `build/`.
+The second compiles the executable, and the third launches it.
+
+After ordinary C++ changes, rebuild and run:
+
+```bash
+cmake --build build --target Master_TechDemo
+./build/Master_TechDemo
+```
+
+Run the configuration command again after changing `CMakeLists.txt` or adding
+shader files. GLSL shaders compile when the application starts; check the
+terminal for shader-loading or compilation errors.
+
+### From VS Code
+
+Open the repository root in VS Code. In the Command Palette (`Ctrl+Shift+P`),
+use the following tested sequence:
+
+1. **CMake: Select a Kit** — select the GCC kit.
+2. **CMake: Select Variant** — select **Debug**.
+3. **CMake: Set Build Target** — select **Master_TechDemo**.
+4. **CMake: Run Without Debugging** — build and launch the application.
+
+CMake Tools manages configuration as needed during this workflow. Configuring
+means generating the build files from `CMakeLists.txt`; building then compiles
+the program using those files. For subsequent runs, use **CMake: Run Without
+Debugging** again.
+
+### Entry point and current behavior
+
+The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`.
+Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
+`Application` and calls `update()` to run the input/rendering loop.
+
+The current starter opens a window titled **Final Project**, loads
+`resources/dragon.obj`, and uses `resources/checkerboard.png`. The authored
+platform asset is ready for integration into the application.
+
+The root `build/` directory and generated `imgui.ini` window-layout file are
+ignored by Git.
+
 ## Scene plan
 
 ### Concept: Reactor Inspection
