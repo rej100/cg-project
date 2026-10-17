@@ -54,6 +54,9 @@ platform.
 
 ### Scene inventory
 
+Current asset files, previews, and export settings are documented in the
+[asset inventory](assets/README.md).
+
 #### Models and geometry
 
 Create the scene models in Blender or obtain suitable models online, then use
