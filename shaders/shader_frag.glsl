@@ -2,13 +2,15 @@
 
 layout(std140) uniform Material // Must match the GPUMaterial defined in src/mesh.h
 {
-    vec3 kd; // Linear RGB, supplied by the material uniform buffer.
+    vec3 kd; // linear rgb
     vec3 ks;
     float shininess;
     float transparency;
 };
 
-// can be stored as srgb on gpu but  texture(...) will return linear rgb
+// in general everything is linear rgb except for the fragColor output
+
+// can be stored as srgb on gpu but texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
 uniform bool hasBaseColorTexture;
 uniform vec3 directionToLight; // World-space direction from the surface toward the light.
@@ -62,10 +64,8 @@ void main()
         return;
     }
 
-    // Linear RGB: texture sampling decodes sRGB; kd is supplied as linear.
     vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
-    // Linear RGB, whether lighting is applied or bypassed.
     vec3 color = shadingMode == SHADING_LIT ? shadeDiffuse(baseColor, normal) : baseColor;
-    // sRGB-encoded RGB for our manual-encoding window-output path; alpha is opaque.
+
     fragColor = vec4(linearToSrgb(color), 1.0);
 }
