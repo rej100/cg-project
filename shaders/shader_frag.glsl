@@ -14,6 +14,7 @@ uniform bool hasBaseColorTexture;
 uniform vec3 directionToLight; // World-space direction from the surface toward the light.
 uniform int shadingMode;
 
+in vec3 fragPosition; // World-space position.
 in vec3 fragNormal;
 in vec2 fragTexCoord;
 
@@ -36,13 +37,19 @@ vec3 shadeDiffuse(vec3 baseColor, vec3 normal)
 // convert linear rgb to srgb for display (copied)
 vec3 linearToSrgb(vec3 color)
 {
-    color = max(color, vec3(0.0));
+    vec3 result;
 
-    vec3 low = 12.92 * color;
-    vec3 high = 1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055;
+    for (int channel = 0; channel < 3; ++channel) {
+        float value = max(color[channel], 0.0);
 
-    // Select the appropriate branch independently for R, G, and B.
-    return mix(high, low, lessThanEqual(color, vec3(0.0031308)));
+        if (value <= 0.0031308) {
+            result[channel] = 12.92 * value;
+        } else {
+            result[channel] = 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+        }
+    }
+
+    return result;
 }
 
 void main()
