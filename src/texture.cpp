@@ -1,17 +1,47 @@
 #include "texture.h"
-#include <framework/disable_all_warnings.h>
-DISABLE_WARNINGS_PUSH()
-#include <fmt/format.h>
-DISABLE_WARNINGS_POP()
 #include <framework/image.h>
 
-#include <iostream>
+#include <algorithm>
+#include <utility>
+#include <vector>
 
-Texture::Texture(std::filesystem::path filePath)
+Texture::Texture(const std::filesystem::path& filePath, TextureColorSpace colorSpace)
+    : Texture(Image { filePath }, colorSpace)
 {
-    // Load image from disk to CPU memory.
-    // Image class is defined in <framework/image.h>
-    Image cpuTexture { filePath };
+}
+
+Texture::Texture(const Image& image, TextureColorSpace colorSpace)
+{
+    if (colorSpace == TextureColorSpace::Srgb && image.channels != 3 && image.channels != 4)
+        throw ImageLoadingException("sRGB textures require RGB or RGBA image data");
+
+    GLenum format;
+    GLenum internalFormat;
+    switch (image.channels) {
+    case 1:
+        format = GL_RED;
+        internalFormat = GL_R8;
+        break;
+    case 3:
+        format = GL_RGB;
+        internalFormat = colorSpace == TextureColorSpace::Srgb ? GL_SRGB8 : GL_RGB8;
+        break;
+    case 4:
+        format = GL_RGBA;
+        internalFormat = colorSpace == TextureColorSpace::Srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+        break;
+    default:
+        throw ImageLoadingException("Unsupported number of image channels");
+    }
+
+    // Image stores rows top-to-bottom; OpenGL UVs expect the first row at the bottom.
+    const size_t rowBytes = static_cast<size_t>(image.width) * static_cast<size_t>(image.channels);
+    const size_t height = static_cast<size_t>(image.height);
+    std::vector<uint8_t> bottomUpPixels(rowBytes * height);
+    for (size_t y = 0; y < height; ++y) {
+        std::copy_n(image.get_data() + (height - 1 - y) * rowBytes,
+            rowBytes, bottomUpPixels.data() + y * rowBytes);
+    }
 
     // Create a texture on the GPU and bind it for parameter setting
     glGenTextures(1, &m_texture);
@@ -21,34 +51,35 @@ Texture::Texture(std::filesystem::path filePath)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    // Set interpolation for texture sampling (bilinear interpolation across mip-maps).
+    // Trilinear minification and bilinear magnification.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Define GPU texture parameters and upload corresponding data based on number of image channels
-    switch (cpuTexture.channels) {
-        case 1:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, cpuTexture.width, cpuTexture.height, 0, GL_RED, GL_UNSIGNED_BYTE, cpuTexture.get_data());
-            break;
-        case 3:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, cpuTexture.width, cpuTexture.height, 0, GL_RGB, GL_UNSIGNED_BYTE, cpuTexture.get_data());
-            break;
-        case 4:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cpuTexture.width, cpuTexture.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, cpuTexture.get_data());
-            break;
-        default:
-            std::cerr << "Number of channels read for texture is not supported" << std::endl;
-            throw std::exception();
-    }
+    // Rows are tightly packed even when their byte count is not a multiple of four.
+    GLint previousAlignment;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousAlignment);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFormat), image.width, image.height,
+        0, format, GL_UNSIGNED_BYTE, bottomUpPixels.data());
+    glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
 
     // Generate mip-maps
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
-Texture::Texture(Texture&& other)
-    : m_texture(other.m_texture)
+Texture::Texture(Texture&& other) noexcept
+    : m_texture(std::exchange(other.m_texture, INVALID))
 {
-    other.m_texture = INVALID;
+}
+
+Texture& Texture::operator=(Texture&& other) noexcept
+{
+    if (this != &other) {
+        if (m_texture != INVALID)
+            glDeleteTextures(1, &m_texture);
+        m_texture = std::exchange(other.m_texture, INVALID);
+    }
+    return *this;
 }
 
 Texture::~Texture()
@@ -57,7 +88,7 @@ Texture::~Texture()
         glDeleteTextures(1, &m_texture);
 }
 
-void Texture::bind(GLint textureSlot)
+void Texture::bind(GLenum textureSlot) const
 {
     glActiveTexture(textureSlot);
     glBindTexture(GL_TEXTURE_2D, m_texture);

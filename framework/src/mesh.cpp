@@ -73,16 +73,14 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
     for (const auto& shape : inShapes) {
         assert(shape.mesh.indices.size() % 3 == 0);
 
+        const size_t numTriangles = shape.mesh.indices.size() / 3;
         size_t startTriangle = 0;
-        auto prevMaterialID = shape.mesh.material_ids[0];
-        for (size_t endTriangle = 0; endTriangle < shape.mesh.indices.size() / 3; ++endTriangle) {
-            // tinyobjloader does not automatically split the mesh into smaller sub meshes according to material so we have to do it ourselves.
-            if (endTriangle == shape.mesh.indices.size() / 3 - 1)
-                ++endTriangle; // End of the tinyobj.shape; write remaining mesh.
-            else if (shape.mesh.material_ids[endTriangle] == prevMaterialID)
-                continue;
-            else
-                prevMaterialID = shape.mesh.material_ids[endTriangle];
+        while (startTriangle < numTriangles) {
+            // Each output mesh contains one consecutive range of triangles with the same material.
+            const auto materialID = shape.mesh.material_ids[startTriangle];
+            size_t endTriangle = startTriangle + 1;
+            while (endTriangle < numTriangles && shape.mesh.material_ids[endTriangle] == materialID)
+                ++endTriangle;
 
             Mesh mesh;
             using CacheKey = std::tuple<uint32_t, uint32_t, uint32_t>;
@@ -122,13 +120,13 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
                 mesh.triangles.push_back(triangle);
             }
 
-            const auto materialID = shape.mesh.material_ids[startTriangle];
             if (materialID == -1) {
                 mesh.material.kd = glm::vec3(1.0f);
                 mesh.material.ks = glm::vec3(0.0f);
                 mesh.material.shininess = 1.0f;
             } else {
                 const auto& objMaterial = inMaterials[materialID];
+                mesh.material.name = objMaterial.name;
                 mesh.material.kd = construct_vec3(objMaterial.diffuse);
                 if (!objMaterial.diffuse_texname.empty()) {
                     mesh.material.kdTexture = std::make_shared<Image>(baseDir / objMaterial.diffuse_texname);

@@ -1,11 +1,14 @@
 #pragma once
-#include <framework/disable_all_warnings.h>
-DISABLE_WARNINGS_PUSH()
-#include <glm/vec3.hpp>
-DISABLE_WARNINGS_POP()
-#include <exception>
 #include <filesystem>
 #include <framework/opengl_includes.h>
+#include <stdexcept>
+
+struct Image;
+
+enum class TextureColorSpace {
+    Linear,
+    Srgb
+};
 
 struct ImageLoadingException : public std::runtime_error {
     using std::runtime_error::runtime_error;
@@ -13,15 +16,16 @@ struct ImageLoadingException : public std::runtime_error {
 
 class Texture {
 public:
-    Texture(std::filesystem::path filePath);
+    explicit Texture(const std::filesystem::path& filePath, TextureColorSpace colorSpace = TextureColorSpace::Linear);
+    explicit Texture(const Image& image, TextureColorSpace colorSpace = TextureColorSpace::Linear);
     Texture(const Texture&) = delete;
-    Texture(Texture&&);
+    Texture(Texture&&) noexcept;
     ~Texture();
 
     Texture& operator=(const Texture&) = delete;
-    Texture& operator=(Texture&&) = default;
+    Texture& operator=(Texture&&) noexcept;
 
-    void bind(GLint textureSlot);
+    void bind(GLenum textureSlot) const;
 
 private:
     static constexpr GLuint INVALID = 0xFFFFFFFF;

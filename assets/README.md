@@ -8,7 +8,10 @@ A 12 m diameter, 0.38 m tall circular exhibit platform with a polished white
 marble top, narrow gold rim, and beveled satin-white base. An original-color
 TU Delft logo near the front edge provides an orientation marker and a clearly
 visible normal-mapping example. The shared origin is at ground level in the
-center. Application-side loading and rendering are still to be implemented.
+center. The application loads its three material groups and base-color texture
+in the platform viewer, using simple directional diffuse lighting and ambient
+fill. The previews below are Blender renders of the full authored materials;
+application-side PBR, roughness, normal mapping, and reflections are planned next.
 
 ### Files
 
@@ -28,9 +31,10 @@ center. Application-side loading and rendering are still to be implemented.
 
 ### Materials
 
-Map the OBJ's material names to the following application materials. Constant
-RGB values below are linear shader values. All three materials have zero
-emission.
+The application retains the OBJ's material names and reads their colors and
+base-color texture references from the MTL. The table below describes the full
+authored materials, including properties for the upcoming PBR renderer. Constant
+RGB values are linear shader values. All three materials have zero emission.
 
 | Material name | Base color | Metallic | Roughness | Normal mapping |
 | --- | --- | --- | --- | --- |
@@ -39,7 +43,7 @@ emission.
 | `platform_base` | `(0.73, 0.75, 0.77)` | 0 | 0.34 | Geometric normals. |
 
 UV coordinates cover a 12 m texture span, with a planar mapping on the top and
-cylindrical mapping on the thin side. The Blender runtime material uses the same
+cylindrical mapping on the thin side. The Blender preview material uses the same
 exported PNGs intended for the application. The reusable marble-only material
 `marble` and its textures remain available separately from `platform_marble`.
 

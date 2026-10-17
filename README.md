@@ -56,9 +56,44 @@ The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`
 Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
 `Application` and calls `update()` to run the input/rendering loop.
 
-The current starter opens a window titled **Final Project**, loads
-`resources/dragon.obj`, and uses `resources/checkerboard.png`. The authored
-platform asset is ready for integration into the application.
+The application opens **Reactor Inspection - Platform Viewer** and loads
+`assets/models/platform.obj` at its authored scale: 12 m across and 0.38 m tall.
+The OBJ/MTL supplies three material groups: a satin-white base, a gold-colored
+rim, and a marble top with the TU Delft logo baked into its base-color texture.
+Startup output lists each material, its triangle count, and whether it uses a
+texture or a constant base color.
+
+### Platform viewer controls
+
+| Control | Action |
+| --- | --- |
+| Left mouse drag over the scene | Orbit around the camera's target. |
+| Right mouse drag over the scene | Pan the camera and its target. |
+| Mouse wheel over the scene | Zoom in or out. |
+| **Overview** | Frame the whole platform from above its front side (+Z). |
+| **Logo detail** | Frame the logo near the front rim. |
+| **Shading** | Select **Lit**, **Base color**, or **Normals**. |
+
+**Lit** uses a directional diffuse light plus a small constant ambient term.
+**Base color** displays the material color or texture without lighting.
+**Normals** displays world-space surface normals, mapping XYZ components from
+[-1, 1] into RGB [0, 1].
+
+This is a basic material preview. The authored metallic/roughness properties,
+logo normal map, and environment reflections are the next rendering stages.
+Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
+linear colors, and the scene shader converts its final output to sRGB. Image
+rows are flipped during GPU upload to match the OBJ UV convention.
+
+The main rendering responsibilities are:
+
+| Code | Responsibility |
+| --- | --- |
+| `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images. |
+| `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
+| `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
+| `src/application.cpp` | Load the platform, coordinate the trackball camera, construct controls in `drawUi()`, and render in `renderScene()`. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply the selected preview shading. |
 
 ### Window size and UI scaling
 
@@ -71,7 +106,7 @@ platform asset is ready for integration into the application.
   font at 100% scale**. For example, a detected display scale of 2× produces a
   36-pixel font with the default UI setting. The startup console reports both
   the detected scale and initial font size.
-- The **Window** panel shows **Display scale** and provides a **UI scale** slider
+- The **Platform viewer** panel shows **Display scale** and provides a **UI scale** slider
   from **0.75× to 2.0×** for personal adjustment. This multiplier starts at 1.0×
   each launch and applies on top of the detected display scale:
 

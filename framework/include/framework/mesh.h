@@ -7,8 +7,10 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/vec3.hpp>
 DISABLE_WARNINGS_POP()
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 struct Vertex {
@@ -20,6 +22,7 @@ struct Vertex {
 };
 
 struct Material {
+	std::string name { "default" };
 	glm::vec3 kd; // Diffuse color
 	glm::vec3 ks{ 0.0f };
 	float shininess{ 1.0f };

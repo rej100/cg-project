@@ -45,6 +45,10 @@ public:
         return pixels.data();
     }
 
+    const uint8_t* get_data() const {
+        return pixels.data();
+    }
+
 private:
     std::vector<uint8_t> pixels;
 };
