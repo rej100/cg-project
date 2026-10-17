@@ -18,7 +18,7 @@ in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 fragColor;
 
-// Keep these values in sync with Application::ShadingMode.
+// this has to be the same as Application::ShadingMode
 const int SHADING_LIT = 0;
 const int SHADING_BASE_COLOR = 1;
 const int SHADING_NORMALS = 2;
@@ -43,15 +43,13 @@ void main()
 {
     vec3 normal = normalize(fragNormal);
     if (shadingMode == SHADING_NORMALS) {
-        // Remap signed XYZ directions from [-1, 1] into display RGB [0, 1].
+        // change normal xyz from [-1, 1] to [0, 1] for RGB
         fragColor = vec4(normal * 0.5 + 0.5, 1.0);
         return;
     }
 
     // sRGB textures are decoded by OpenGL; constant material colors are already linear.
-    vec3 baseColor = hasBaseColorTexture
-        ? texture(baseColorMap, fragTexCoord).rgb
-        : kd;
+    vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
     vec3 color = shadingMode == SHADING_LIT ? shadeDiffuse(baseColor, normal) : baseColor;
     fragColor = vec4(linearToSrgb(color), 1.0);
 }

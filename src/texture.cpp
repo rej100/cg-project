@@ -12,6 +12,7 @@ Texture::Texture(const std::filesystem::path& filePath, TextureColorSpace colorS
 
 Texture::Texture(const Image& image, TextureColorSpace colorSpace)
 {
+    // ad
     if (colorSpace == TextureColorSpace::Srgb && image.channels != 3 && image.channels != 4)
         throw ImageLoadingException("sRGB textures require RGB or RGBA image data");
 
@@ -42,6 +43,7 @@ Texture::Texture(const Image& image, TextureColorSpace colorSpace)
         std::copy_n(image.get_data() + (height - 1 - y) * rowBytes,
             rowBytes, bottomUpPixels.data() + y * rowBytes);
     }
+    // ad
 
     // Create a texture on the GPU and bind it for parameter setting
     glGenTextures(1, &m_texture);

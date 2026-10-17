@@ -34,7 +34,7 @@ public:
         defaultBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shader_frag.glsl");
         m_defaultShader = defaultBuilder.build();
 
-        // Compiled for the later shadow-rendering pass.
+        // not used for now
         ShaderBuilder shadowBuilder;
         shadowBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shadow_vert.glsl");
         shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl");
