@@ -20,7 +20,9 @@ than a list of features already implemented.
 
 - **Exhibit platform:** approximately 12 m across, raised slightly above a broad,
   pale ground plane. Its polished white marble top has restrained grey veining
-  and a narrow gold outer edge. It receives shadows from the reactor and drone.
+  and a narrow gold outer edge. An original-color TU Delft logo near the front
+  rim marks its orientation and has deliberately pronounced normal-mapped bevels.
+  It receives shadows from the reactor and drone.
 - **Reactor:** approximately 3.5 m tall, with a white marble cylindrical pedestal
   and gold collar, a luminous cyan core, a dark inner recess, white ceramic
   housing panels, three gold rings, and three structural supports. One
@@ -72,7 +74,7 @@ with appropriate rotation pivots.
 | Object | Required parts | Construction / animation |
 | --- | --- | --- |
 | Ground | One broad ground plane | Static plane with a uniform pale material. |
-| Exhibit platform | Circular base, marble top surface, narrow gold edge | Authored static mesh with small edge bevels; marble top and gold edge have separate material assignments. |
+| Exhibit platform | Circular base, marble top surface with TU Delft logo near the front rim, narrow gold edge | Authored static mesh with small edge bevels; the marble top has platform-specific color and normal maps, with separate materials for the gold edge and white base. |
 | Reactor pedestal | Marble base cylinder and gold collar | Part of the authored reactor asset; shares the platform's marble texture set at a consistent world-space scale. |
 | Reactor core | Cyan inner cylinder and dark backing/recess | Part of the authored reactor asset; core has an emissive material. |
 | Reactor housing | Three white outer panels and one visible detail panel bearing the TU Delft logo | Authored panels with readable UVs for the colored logo, its normal-mapped bevels, grooves, and markings. |
@@ -102,7 +104,7 @@ and images without requiring Blender at runtime.
 | `assets/source/reactor.blend` | Editable reactor, pedestal, and detail panel, including the detailed logo geometry used for baking. |
 | `assets/source/drone.blend` | Editable body, rotor, sensor mount, and sensor head meshes, with reference positions and pivots for assembly. |
 | `assets/source/showcase_lamp.blend` | Editable lamp geometry and material assignments. |
-| `assets/source/tu_delft_logo.svg` | Vector source for the logo artwork and beveled relief; source and authorship recorded in `assets/README.md`. |
+| `assets/source/TU_Delft_Logo.svg` | User-provided vector source for the original-color logo artwork and beveled relief; source and authorship recorded in `assets/README.md`. |
 | `assets/models/platform.obj` | Static platform, with material groups for its marble top, base, and gold edge. |
 | `assets/models/reactor.obj` | Static reactor assembly: pedestal, collar, core, recess, panels, rings, and supports, with named material groups. |
 | `assets/models/showcase_lamp.obj` | Static fixture with separate housing and emissive-face material groups. |
@@ -131,9 +133,11 @@ emissive surfaces can use constant material parameters instead of extra images.
 
 | Planned file | Purpose |
 | --- | --- |
-| `assets/textures/marble_basecolor.png` | Polished white marble with subtle grey veins, shared by the platform top and reactor pedestal. |
+| `assets/textures/marble_basecolor.png` | Reusable polished white marble with subtle grey veins, used for the reactor pedestal and as the source for the platform's marble composition. |
 | `assets/textures/marble_roughness.png` | Low roughness with subtle natural variation across the marble. |
 | `assets/textures/marble_normal.png` (optional) | Very fine surface detail; veins remain color patterns rather than deep grooves. A flat normal is sufficient initially. |
+| `assets/textures/platform_basecolor.png` | Marble with the original-color TU Delft logo positioned near the platform's front edge. |
+| `assets/textures/platform_normal.png` | Deliberately pronounced beveled logo relief, with flat normals elsewhere; tangent-space +X/+Y/+Z data. |
 | `assets/textures/reactor_basecolor.png` | White housing panels, the blue TU Delft logo, and diagnostic labels. |
 | `assets/textures/reactor_roughness.png` | Satin housing surfaces and smoother selected details. |
 | `assets/textures/reactor_normal.png` | Shallow beveled relief for the TU Delft logo, recessed grooves, and screw heads; especially clear on the detail panel. |
@@ -162,10 +166,10 @@ the blue logo remains visible as a flat printed design.
 
 #### Asset preparation and first milestone
 
-1. **Validate one asset end to end first:** create a small marble pedestal with a
-   gold collar and a TU Delft detail panel in Blender. Use `reactor.blend` and the
-   reactor export paths for this initial version, then expand it into the full
-   reactor after the pipeline works.
+1. **Validate one asset end to end first:** use the platform's marble, gold trim,
+   and normal-mapped TU Delft logo to test the Blender-to-application workflow.
+   Its source, mesh export, textures, and comparison previews are available in
+   the asset inventory; validate them in the renderer before expanding the scene.
 2. **Prepare UVs and materials:** unwrap the model so the color, roughness, and
    normal textures align. Keep the logo readable and marble vein scale consistent
    between surfaces. Author materials or adapt suitable online texture sets.
@@ -217,7 +221,7 @@ the blue logo remains visible as a flat printed design.
 | Multiple viewpoints | The platform, flight route, drone, and reactor details. | Switch between showcase, overhead, follow, and close-up camera presets while the same scene runs. |
 | Advanced shading: PBR | Polished marble beside gold trim, white ceramic, gold reactor rings, aluminium supports, and the dark sensor. Curved surfaces expose highlight shape and material differences. | Compare PBR against the simple reference shading mode at a fixed camera, light setup, and exposure. Include the marble pedestal and gold collar in a material close-up. |
 | Material textures | Marble veining on the platform and pedestal, reactor labels, drone markings, and spatial roughness variation. | Toggle material textures against constant material values. Marble veins and printed markings disappear, and roughness becomes uniform per material. Keep normal mapping separately controllable. |
-| Normal mapping | Embossed TU Delft logo, grooves, and screw heads on the reactor detail panel, plus drone panel detail. | In the reactor close-up, toggle normal mapping while keeping material textures enabled. The logo changes from apparently raised and beveled to flat printed blue artwork; grooves and screw heads flatten too, while the mesh silhouette stays unchanged. |
+| Normal mapping | Pronounced beveled TU Delft logo on the platform, embossed logo and grooves/screw heads on the reactor panel, and drone panel detail. | Use the platform-logo or reactor close-up and toggle normal mapping while keeping material textures enabled. The logo changes from apparently raised and beveled to flat colored artwork; grooves and screw heads flatten too, while the mesh silhouette stays unchanged. |
 | Environment mapping | Gold reactor rings and metallic drone trim reflect the sky and distant environment. | Move the camera around the curved metal and toggle its environment-reflection contribution. Keep the background and direct lighting visible. |
 | Smooth paths using at least three cubic Bézier curves | The drone flies a closed route comprising four smoothly joined cubic segments. | Toggle path movement and the rendered curve independently. The overhead view exposes the route; the showcase view exposes height changes. |
 | Hierarchical transformations | Code-assembled drone body → rotor mounts → spinning blades, and body → turning sensor mount → tilting sensor head, using separately loaded mesh assets. | Pause route movement while component animation continues, then toggle component animation separately. Use the drone close-up to show the nested motion. |
