@@ -24,9 +24,10 @@ DISABLE_WARNINGS_POP()
 class Application {
 public:
     Application()
-        : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
+        : m_window("Final Project", glm::ivec2(1600, 900), OpenGLVersion::GL41)
         , m_texture(RESOURCE_ROOT "resources/checkerboard.png")
     {
+        m_window.maximize();
         m_window.registerKeyCallback([this](int key, int scancode, int action, int mods) {
             if (action == GLFW_PRESS)
                 onKeyPressed(key, mods);
@@ -51,7 +52,7 @@ public:
 
             ShaderBuilder shadowBuilder;
             shadowBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shadow_vert.glsl");
-            shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "Shaders/shadow_frag.glsl");
+            shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl");
             m_shadowShader = shadowBuilder.build();
 
             // Any new shaders can be added below in similar fashion.
@@ -72,8 +73,24 @@ public:
             // Put your real-time logic and rendering in here
             m_window.updateInput();
 
+            const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
+            if (m_window.isMinimized() || framebufferSize.x <= 0 || framebufferSize.y <= 0) {
+                ImGui::EndFrame();
+                glfwWaitEventsTimeout(0.1);
+                continue;
+            }
+
+            glViewport(0, 0, framebufferSize.x, framebufferSize.y);
+            const float aspectRatio = static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y);
+            m_projectionMatrix = glm::perspective(glm::radians(80.0f), aspectRatio, 0.1f, 30.0f);
+
             // Use ImGui for easy input/output of ints, floats, strings, etc...
-            ImGui::Begin("Window");
+            ImGui::Begin("Window", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+            ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
+            float uiScale = m_window.getUiScale();
+            if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
+                m_window.setUiScale(uiScale);
+            ImGui::Separator();
             ImGui::InputInt("This is an integer input", &dummyInteger); // Use ImGui::DragInt or ImGui::DragFloat for larger range of numbers.
             ImGui::Text("Value is: %i", dummyInteger); // Use C printf formatting rules (%i is a signed integer)
             ImGui::Checkbox("Use material if no texture", &m_useMaterial);
@@ -164,7 +181,7 @@ private:
     bool m_useMaterial { true };
 
     // Projection and view matrices for you to fill in and use
-    glm::mat4 m_projectionMatrix = glm::perspective(glm::radians(80.0f), 1.0f, 0.1f, 30.0f);
+    glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix = glm::lookAt(glm::vec3(-1, 1, -1), glm::vec3(0), glm::vec3(0, 1, 0));
     glm::mat4 m_modelMatrix { 1.0f };
 };

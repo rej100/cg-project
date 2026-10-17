@@ -5,8 +5,11 @@
 #undef IMGUI_IMPL_OPENGL_LOADER_GLEW
 #define IMGUI_IMPL_OPENGL_LOADER_GLAD 1
 #include <imgui/imgui_impl_opengl3.h>
+#include <algorithm>
 #include <iostream>
 #include <stb/stb_image_write.h>
+
+static constexpr float BASE_FONT_SIZE = 18.0f;
 
 static void glfwErrorCallback(int error, const char* description)
 {
@@ -26,7 +29,7 @@ void APIENTRY glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum seve
 #endif
 
 Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersion glVersion, bool presentable, bool visible)
-    : m_presentable(presentable), m_glVersion(glVersion)
+    : m_glVersion(glVersion), m_presentable(presentable)
 {
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit()) {
@@ -92,7 +95,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
 
     float xScale, yScale;
     glfwGetWindowContentScale(m_pWindow, &xScale, &yScale);
-    //std::cout << "Window content scale: " << xScale << ", " << yScale << std::endl;
+    m_dpiScalingFactor = std::max(xScale, yScale);
 
     glfwGetWindowSize(m_pWindow, &m_windowSize.x, &m_windowSize.y);
 
@@ -119,17 +122,12 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
 
         // Setup Dear ImGui context.
         ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        (void)io;
         // Setup Dear ImGui style.
         ImGui::StyleColorsDark();
-        // ImGui scaling for HighDPI displays
-        // https://twitter.com/ocornut/status/939547856171659264?lang=en
-        ImGuiStyle& style = ImGui::GetStyle();
-        style.ScaleAllSizes(m_dpiScalingFactor);
-        ImFontConfig cfg;
-        cfg.SizePixels = 13 * m_dpiScalingFactor;
-        io.Fonts->AddFontDefault(&cfg);
+        m_unscaledStyle = ImGui::GetStyle();
+        applyUiScale();
+        std::cout << "Display scale: " << m_dpiScalingFactor
+                  << "x; ImGui font size: " << BASE_FONT_SIZE * m_dpiScalingFactor * m_uiScale << " px" << std::endl;
 
         ImGui_ImplGlfw_InitForOpenGL(m_pWindow, true);
         switch (glVersion) {
@@ -163,6 +161,7 @@ Window::Window(std::string_view title, const glm::ivec2& windowSize, OpenGLVersi
         glfwSetCursorPosCallback(m_pWindow, mouseMoveCallback);
         glfwSetScrollCallback(m_pWindow, scrollCallback);
         glfwSetWindowSizeCallback(m_pWindow, windowSizeCallback);
+        glfwSetWindowContentScaleCallback(m_pWindow, contentScaleCallback);
     }
 }
 
@@ -200,6 +199,46 @@ bool Window::shouldClose()
     return glfwWindowShouldClose(m_pWindow) != 0;
 }
 
+void Window::maximize()
+{
+    glfwMaximizeWindow(m_pWindow);
+}
+
+bool Window::isMinimized() const
+{
+    return glfwGetWindowAttrib(m_pWindow, GLFW_ICONIFIED) == GLFW_TRUE;
+}
+
+void Window::setUiScale(float scale)
+{
+    scale = std::clamp(scale, 0.75f, 2.0f);
+    if (scale != m_uiScale) {
+        m_uiScale = scale;
+        m_uiScaleDirty = true;
+    }
+}
+
+float Window::getUiScale() const
+{
+    return m_uiScale;
+}
+
+void Window::applyUiScale()
+{
+    const float scale = m_dpiScalingFactor * m_uiScale;
+    // Reset before scaling so repeated adjustments do not accumulate rounding errors.
+    ImGui::GetStyle() = m_unscaledStyle;
+    ImGui::GetStyle().ScaleAllSizes(scale);
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.FontDefault = nullptr;
+    io.Fonts->Clear();
+    ImFontConfig cfg;
+    cfg.SizePixels = BASE_FONT_SIZE * scale;
+    io.FontDefault = io.Fonts->AddFontDefault(&cfg);
+    m_uiScaleDirty = false;
+}
+
 void Window::updateInput()
 {
     glfwPollEvents();
@@ -219,6 +258,26 @@ void Window::updateInput()
             ImGui_ImplOpenGL3_NewFrame();
         } break;
         };
+
+        if (m_uiScaleDirty) {
+            // The previous frame has ended; rebuild the atlas before ImGui::NewFrame.
+            // This bundled OpenGL backend needs explicit font-texture recreation.
+            switch (m_glVersion) {
+            case OpenGLVersion::GL2:
+                ImGui_ImplOpenGL2_DestroyFontsTexture();
+                applyUiScale();
+                ImGui_ImplOpenGL2_CreateFontsTexture();
+                break;
+            case OpenGLVersion::GL41:
+            case OpenGLVersion::GL45:
+                ImGui_ImplOpenGL3_DestroyFontsTexture();
+                applyUiScale();
+                ImGui_ImplOpenGL3_CreateFontsTexture();
+                break;
+            case OpenGLVersion::GL3:
+                break;
+            }
+        }
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
     }
@@ -304,6 +363,16 @@ void Window::registerWindowResizeCallback(WindowResizeCallback&& callback)
 void Window::registerMouseMoveCallback(MouseMoveCallback&& callback)
 {
     m_mouseMoveCallbacks.push_back(std::move(callback));
+}
+
+void Window::contentScaleCallback(GLFWwindow* window, float xScale, float yScale)
+{
+    Window* pThisWindow = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    const float scale = std::max(xScale, yScale);
+    if (scale != pThisWindow->m_dpiScalingFactor) {
+        pThisWindow->m_dpiScalingFactor = scale;
+        pThisWindow->m_uiScaleDirty = true;
+    }
 }
 
 void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)

@@ -5,6 +5,7 @@
 DISABLE_WARNINGS_PUSH()
 #include <GLFW/glfw3.h>
 #include <glm/vec2.hpp>
+#include <imgui/imgui.h>
 DISABLE_WARNINGS_POP()
 #include <functional>
 #include <optional>
@@ -26,6 +27,12 @@ public:
 
 	void close(); // Set shouldClose() to true.
 	[[nodiscard]] bool shouldClose(); // Whether window should close (close() was called or user clicked the close button).
+	void maximize();
+	[[nodiscard]] bool isMinimized() const;
+
+	// Apply font/style changes between frames, including changes requested by the UI.
+	void setUiScale(float scale);
+	[[nodiscard]] float getUiScale() const;
 
 	void updateInput();
 	void swapBuffers(); // Swap the front/back buffer
@@ -64,6 +71,8 @@ public:
 	[[nodiscard]] float getDpiScalingFactor() const;
 
 private:
+	void applyUiScale();
+	static void contentScaleCallback(GLFWwindow* window, float xScale, float yScale);
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void charCallback(GLFWwindow* window, unsigned unicodeCodePoint);
 	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
@@ -75,6 +84,9 @@ private:
 	GLFWwindow* m_pWindow;
 	glm::ivec2 m_windowSize;
 	float m_dpiScalingFactor = 1.0f;
+	float m_uiScale = 1.0f;
+	bool m_uiScaleDirty = false;
+	ImGuiStyle m_unscaledStyle;
 	const OpenGLVersion m_glVersion;
         bool m_presentable;
 
