@@ -1,0 +1,93 @@
+# Blender 5.2.2 LTS MTL File: 'reactor.blend'
+# www.blender.org
+
+newmtl ceramic
+Kd 0.780000 0.810000 0.840000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.250000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl cyan_core
+Kd 0.008000 0.320000 0.480000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 1.000000 1.800000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.220000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl gold
+Kd 0.830000 0.570000 0.230000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+Pr 0.210000
+Pm 1.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl graphite
+Kd 0.018000 0.028000 0.040000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+Pr 0.300000
+Pm 0.650000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl marble
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd ../textures/marble_basecolor.png
+map_Pr ../textures/marble_roughness.png
+
+newmtl reactor_panel
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.280000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd ../textures/reactor_panel_basecolor.png
+map_Bump -bm 1.250000 ../textures/reactor_panel_normal.png
