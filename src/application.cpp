@@ -162,23 +162,21 @@ private:
     void drawLightingUi()
     {
         constexpr ImGuiSliderFlags clamped = ImGuiSliderFlags_AlwaysClamp;
+        const float intensityOffset = ImGui::GetFontSize() * 7.0f;
+        const float sliderWidth = ImGui::GetFontSize() * 8.0f;
+
+        ImGui::Checkbox("Sun", &m_sun.enabled);
+        ImGui::SameLine(intensityOffset);
+        ImGui::SetNextItemWidth(sliderWidth);
+        ImGui::SliderFloat("Intensity##Sun", &m_sun.intensity, 0.0f, 2.0f, "%.2f", clamped);
+
+        ImGui::Checkbox("Spotlight", &m_spotlight.enabled);
+        ImGui::SameLine(intensityOffset);
+        ImGui::SetNextItemWidth(sliderWidth);
+        ImGui::SliderFloat("Intensity##Spotlight", &m_spotlight.intensity, 0.0f, 2.0f, "%.2f", clamped);
+
+        ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Ambient strength", &m_ambientStrength, 0.0f, 1.0f, "%.2f", clamped);
-
-        ImGui::Separator();
-        ImGui::Checkbox("Sun enabled", &m_sun.enabled);
-        ImGui::SliderFloat("Sun intensity", &m_sun.intensity, 0.0f, 2.0f, "%.2f", clamped);
-
-        ImGui::Separator();
-        ImGui::Checkbox("Spotlight enabled", &m_spotlight.enabled);
-        ImGui::SliderFloat("Spotlight intensity", &m_spotlight.intensity, 0.0f, 150.0f, "%.1f", clamped);
-        ImGui::TextUnformatted("Position / target: world XYZ (m)");
-        ImGui::DragFloat3("Spot position", glm::value_ptr(m_spotlight.position), 0.05f);
-        ImGui::DragFloat3("Spot target", glm::value_ptr(m_spotlight.target), 0.05f);
-        // Keep a gap between the cone angles so smoothstep has distinct edges.
-        ImGui::SliderFloat("Inner half-angle", &m_spotlight.innerAngleDegrees,
-            0.0f, m_spotlight.outerAngleDegrees - 1.0f, "%.1f deg", clamped);
-        ImGui::SliderFloat("Outer half-angle", &m_spotlight.outerAngleDegrees,
-            m_spotlight.innerAngleDegrees + 1.0f, 89.0f, "%.1f deg", clamped);
         ImGui::Checkbox("Show light marker", &m_showLightMarker);
     }
 
@@ -222,8 +220,7 @@ private:
         glUniform3fv(m_defaultShader.getUniformLocation("spotlight.direction"), 1, glm::value_ptr(spotlightDirection));
         glUniform3fv(m_defaultShader.getUniformLocation("spotlight.color"), 1, glm::value_ptr(m_spotlight.color));
         glUniform1f(m_defaultShader.getUniformLocation("spotlight.intensity"), m_spotlight.intensity);
-        glUniform1f(m_defaultShader.getUniformLocation("spotlight.innerConeCos"), glm::cos(glm::radians(m_spotlight.innerAngleDegrees)));
-        glUniform1f(m_defaultShader.getUniformLocation("spotlight.outerConeCos"), glm::cos(glm::radians(m_spotlight.outerAngleDegrees)));
+        glUniform1f(m_defaultShader.getUniformLocation("spotlight.coneCos"), glm::cos(glm::radians(m_spotlight.coneHalfAngleDegrees)));
         glUniform1i(m_defaultShader.getUniformLocation("spotlight.enabled"), m_spotlight.enabled);
     }
 

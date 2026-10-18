@@ -17,9 +17,8 @@ struct SpotLight {
     glm::vec3 position { 5.0f, 6.0f, 4.5f };
     glm::vec3 target { 0.0f, 1.8f, 0.0f };
     glm::vec3 color { 1.0f }; // linear rgb
-    float intensity { 20.0f };
-    float innerAngleDegrees { 18.0f };
-    float outerAngleDegrees { 25.0f };
+    float intensity { 0.3f };
+    float coneHalfAngleDegrees { 25.0f };
     bool enabled { true };
 
     glm::vec3 direction() const

@@ -83,11 +83,9 @@ emission values.
 | **Platform logo** | Frame the logo near the platform's front rim. |
 | **Shading** | Select **Lit**, **Base color**, or **Normals**. |
 | **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
+| **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
+| **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
 | **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
-| **Lighting → Sun enabled / intensity** | Toggle or adjust the directional sunlight. |
-| **Lighting → Spotlight enabled / intensity** | Toggle or adjust the showcase spotlight. |
-| **Lighting → Spot position / target** | Move and aim the spotlight in world-space meters. Drag a component or Ctrl-click to enter a value. |
-| **Lighting → Inner / outer half-angle** | Adjust the spotlight's fully lit cone and its smooth fade to zero. |
 | **Lighting → Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
 
 **Lit** adds directional sunlight, spotlight illumination, and one adjustable
@@ -105,16 +103,21 @@ a halo.
 
 The sun supplies white directional light with direction-to-light
 `(-0.4, 1, 0.6)` and default intensity 0.75. The spotlight starts at
-`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 20,
-and inner/outer cone half-angles of 18°/25°. Its direction is derived from
-`target - position`. Light settings are held in the simple structures in
-`src/light.h` and uploaded as ordinary uniforms for the scene.
+`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 0.3,
+and a single cone half-angle of 25° (50° full opening). Its direction is derived
+from `target - position`. Position, target, light colors, and cone angle are
+configured in `src/light.h`; settings are uploaded as ordinary uniforms.
 
-Spotlight illumination uses the world-space fragment-to-light direction,
-inverse-square distance attenuation, and a smooth cone factor between the
-cosines of the outer and inner half-angles. Attenuation is capped within 0.1 m
-of the source. Cone controls keep at least a 1° gap between the half-angles.
-Coincident position/target values use a downward aim.
+Spotlight illumination uses the world-space fragment-to-light direction and
+a simple cone test: fragments outside the cone receive zero spotlight light.
+Inside the cone, incoming light is `color * intensity`, with a hard boundary
+and constant strength with distance. Surface shading still depends on the
+normal's angle to the light. Coincident position/target values use a downward
+aim, and a fragment at the light position receives zero spotlight contribution.
+
+The Lighting section has four compact rows: sun enable/intensity, spotlight
+enable/intensity, ambient strength, and marker visibility. Both intensity
+sliders use the range 0–2. Widget widths and spacing follow the UI font size.
 
 The ambient strength starts at 0.25 and is added once, independently of the
 two direct lights. Future environment-based diffuse lighting will replace this
@@ -133,8 +136,8 @@ while normal depth testing lets scene geometry obscure it.
 To compare the lights, use **Lit**, turn **Emission** off, and set
 **Ambient strength** to zero. Inspect the sun alone, the spotlight alone,
 and both together. With both lights off, the exhibit surfaces are black;
-the background and enabled debug marker remain visible. Moving the spotlight
-or its target updates the illumination and marker together.
+the background and enabled debug marker remain visible. Changing the configured
+spotlight position or target updates both the illumination and marker placement.
 
 This is a basic material preview. The authored metallic/roughness properties,
 logo normal maps, and environment reflections are the next rendering stages.

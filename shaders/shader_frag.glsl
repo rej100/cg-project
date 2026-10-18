@@ -30,8 +30,7 @@ struct SpotLight {
     vec3 direction; // World-space direction from the light toward its target.
     vec3 color; // linear rgb
     float intensity;
-    float innerConeCos;
-    float outerConeCos;
+    float coneCos;
     bool enabled;
 };
 
@@ -70,18 +69,15 @@ vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
         return vec3(0.0);
 
     vec3 toLight = spotlight.position - fragPosition;
-    float distanceSquared = dot(toLight, toLight);
-    if (distanceSquared < 0.000001)
+    if (dot(toLight, toLight) < 0.000001)
         return vec3(0.0);
 
-    vec3 directionToLight = toLight / sqrt(distanceSquared);
+    vec3 directionToLight = normalize(toLight);
     float coneAlignment = dot(spotlight.direction, -directionToLight);
-    float coneFactor = smoothstep(spotlight.outerConeCos, spotlight.innerConeCos, coneAlignment);
-    // Clamp inverse-square attenuation within 0.1 m of the source.
-    float attenuation = 1.0 / max(distanceSquared, 0.01);
-    vec3 incomingLight = spotlight.color * spotlight.intensity * attenuation * coneFactor;
+    if (coneAlignment < spotlight.coneCos)
+        return vec3(0.0);
 
-    return shadeDiffuse(baseColor, normal, directionToLight, incomingLight);
+    return shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
 }
 
 // convert linear rgb to srgb for display (copied)
