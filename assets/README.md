@@ -123,7 +123,9 @@ gold collar, three curved ceramic housings, three gold structural supports,
 three gold field rings, a dark inner recess, and an emissive cyan energy column.
 The crown has radial cooling vents and a luminous upper aperture. A front-facing
 ceramic identity panel carries the original-color TU Delft logo, a technical
-caption, and shallow recessed channels.
+caption, a recessed identity well, a broad lower channel, and four baked
+countersunk fastener details. Wider ceramic bevels around the logo make the
+normal-map demonstration clearly visible, including around the dark lettering.
 
 The preview uses the platform as a sizing reference. The application still
 loads the platform viewer; the reactor export is ready for a separate model
@@ -136,11 +138,11 @@ PBR materials, emission, and a restrained compositor glow.
 | --- | --- |
 | `source/reactor.blend` | Editable reactor parts and bevel modifiers, hidden panel-baking sources, platform reference, preview lighting, and three cameras. |
 | `models/reactor.obj` / `models/reactor.mtl` | Triangulated static assembly: 61,820 triangles, six material groups, UVs, and preserved corner normals. |
-| `textures/reactor_panel_basecolor.png` | 2048 × 2048 sRGB panel composition: ceramic background, original logo colors, caption, and groove markings. |
-| `textures/reactor_panel_normal.png` | 2048 × 2048 linear/non-color tangent-space relief for the logo, caption, and channels. |
+| `textures/reactor_panel_basecolor.png` | 2048 × 2048 sRGB panel composition: ceramic background, original logo ink on the letter faces, caption, and flat fastener/channel markings, without baked lighting. |
+| `textures/reactor_panel_normal.png` | 2048 × 2048 linear/non-color tangent-space relief for the broad logo bevels, recessed well, caption, channel, and countersunk fasteners. |
 | `previews/reactor.png` | Hero render of the reactor. |
 | `previews/reactor_on_platform.png` | Full platform composition showing the relative scale. |
-| `previews/reactor_panel_normal_on.png` / `previews/reactor_panel_normal_off.png` | Matching panel close-ups with normal-map strength 1.25 and 0. |
+| `previews/reactor_panel_normal_on.png` / `previews/reactor_panel_normal_off.png` | Matching panel close-ups with normal-map strength 1.5 and 0, under identical lighting including a side/raking inspection light. |
 
 The pedestal reuses `marble_basecolor.png` and `marble_roughness.png` at the
 platform's 12 m texture span. The logo source is the existing user-provided
@@ -159,14 +161,14 @@ assign materials by name rather than by mesh order.
 | `ceramic` | `(0.78, 0.81, 0.84)` | 0 | 0.25 | Geometric normals. |
 | `graphite` | `(0.018, 0.028, 0.040)` | 0.65 | 0.30 | Geometric normals. |
 | `cyan_core` | `(0.008, 0.32, 0.48)` | 0 | 0.22 | Geometric normals. |
-| `reactor_panel` | `reactor_panel_basecolor.png` | 0 | 0.28 | `reactor_panel_normal.png`, strength 1.25. |
+| `reactor_panel` | `reactor_panel_basecolor.png` | 0 | 0.24 | `reactor_panel_normal.png`, strength 1.5. |
 
 The core's Blender emission color is `(0, 0.25, 0.45)` with strength 4, exported
 as `Ke 0 1 1.8`. Importing the model into the application will require emission
 support to reproduce its luminous appearance.
 
 As with the platform, the panel's MTL reference is
-`map_Bump -bm 1.250000 ../textures/reactor_panel_normal.png`. Interpret this as a
+`map_Bump -bm 1.500000 ../textures/reactor_panel_normal.png`. Interpret this as a
 **tangent-space normal map**, with OpenGL-style +X, +Y, +Z channels, rather than
 a grayscale height image. The panel front uses U along Blender +X and V along
 Blender +Z.
@@ -184,8 +186,9 @@ Blender +Z.
   lowered by 0.38 m so its top is at Blender Z = 0. It is excluded from the reactor
   export.
 - **`Studio | PREVIEW ONLY`** contains the floor, three softboxes, a small cyan
-  spill light, and hero, panel-detail, and platform-overview cameras. These are
-  excluded from the export. The compositor glow is preview-only too.
+  spill light, a side/raking panel-inspection light, and hero, panel-detail, and
+  platform-overview cameras. These are excluded from the export. The compositor
+  glow is preview-only too. The saved scene opens in the panel-detail camera.
 - **`Reactor Panel | BAKE SOURCES`** is hidden in the viewport and renders. It
   preserves the editable SVG curves, caption, recessed backing surface, evaluated
   source meshes, and planar UV receiver for rebaking. These are excluded from
@@ -197,13 +200,21 @@ Blender +Z.
 
 ### Baking and verification
 
-The panel's logo source reaches approximately 1.6 cm above the receiver and has
-3 mm bevels. The backing channels are approximately 4.5 mm deep. This relief is
-stored in the normal texture; the export contains no separate lettering mesh.
-Both panel images were baked selected-to-active at 2048 × 2048 with 0.04 m cage
-extrusion, 0.08 m maximum ray distance, and a 12-pixel margin. Color uses the
-diffuse color pass without direct or indirect lighting; normals use tangent
-space with +X, +Y, +Z channels.
+The panel's logo source reaches approximately 2.45 cm above the receiver and has
+7.5 mm bevels. The flat upper faces retain the original logo ink; the sloped
+surrounds use ceramic so their shading remains readable around black lettering.
+The backing has a 12 mm recessed identity well with 18 mm bevel transitions, a
+9 mm lower channel, and four 11 mm countersinks containing slotted fastener
+heads. All of this panel-face relief is stored in the normal texture: the broad
+runtime front face is flat, with no separate lettering or added fastener meshes.
+The frame's corner fasteners are separate geometry.
+
+Both panel images were baked selected-to-active at 2048 × 2048 with 0.06 m cage
+extrusion, 0.12 m maximum ray distance, and a 12-pixel margin. Color uses the
+diffuse color pass without direct or indirect lighting, so highlights and shadows
+are not painted into the base-color map. Normals use tangent space with +X, +Y,
++Z channels. The normal-on/off previews differ only in the normal-map strength;
+the camera, lighting, base-color texture, and runtime geometry are identical.
 
 All 77 evaluated reactor source meshes were checked for closed/manifold geometry.
 The OBJ was re-imported to check its 61,820 triangles, six material assignments,
