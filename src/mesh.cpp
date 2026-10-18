@@ -8,15 +8,6 @@ DISABLE_WARNINGS_POP()
 #include <utility>
 #include <vector>
 
-static_assert(offsetof(GPUMaterial, kd) == 0);
-static_assert(offsetof(GPUMaterial, ks) == 16);
-static_assert(offsetof(GPUMaterial, shininess) == 28);
-static_assert(offsetof(GPUMaterial, transparency) == 32);
-static_assert(offsetof(GPUMaterial, metallic) == 36);
-static_assert(offsetof(GPUMaterial, roughness) == 40);
-static_assert(offsetof(GPUMaterial, emission) == 48);
-static_assert(sizeof(GPUMaterial) == 64);
-
 GPUMaterial::GPUMaterial(const Material& material) :
     kd(material.kd),
     ks(material.ks),

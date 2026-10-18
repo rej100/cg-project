@@ -37,7 +37,7 @@ struct Material {
 	//   material.kdTexture->getTexel(...);
 	// }
 	std::shared_ptr<Image> kdTexture;
-	std::shared_ptr<Image> roughnessTexture; // Optional linear/non-color image that replaces roughness.
+	std::shared_ptr<Image> roughnessTexture; // optional texture that replaces roughness.
 };
 
 struct Mesh {
