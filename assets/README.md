@@ -227,6 +227,54 @@ use the exported PNGs with identical camera and lighting. The model and textures
 were created for this project in Blender; the logo artwork is credited to TU Delft
 and comes from the user-provided SVG.
 
+## Drone
+
+A static drone assembly supplied through the partner's `drone` branch and
+[PR #1](https://github.com/rej100/cg-project/pull/1): a textured body and four
+separately exported propellers. The application loads all five models through
+the OBJ/MTL pipeline and creates one scene object for each part.
+
+### Files
+
+| File | Purpose |
+| --- | --- |
+| `models/drone_body.obj` / `models/drone_body.mtl` | Body, including chassis, camera, wing-part, and battery material groups. |
+| `models/L_F_propeller.obj` / `models/L_F_propeller.mtl` | Left-front propeller. |
+| `models/R_F_propeller.obj` / `models/R_F_propeller.mtl` | Right-front propeller. |
+| `models/L_B_propeller.obj` / `models/L_B_propeller.mtl` | Left-back propeller. |
+| `models/R_B_propeller.obj` / `models/R_B_propeller.mtl` | Right-back propeller. |
+| `textures/drone_chasis.png` | Body chassis base color; filename retained from the contribution. |
+| `textures/drone_cam.png` | Camera base color. |
+| `textures/wing_parts.png` | Wing-part base color. |
+| `textures/drone_battery.png` | Battery base color. |
+| `textures/drone_motor.png` | Propeller/motor base color. |
+
+The material files reference the PNGs through relative `../textures/` paths.
+Base-color images are interpreted as sRGB by the application. All supplied
+drone materials have zero emission.
+
+### Placement and part transforms
+
+The body uses the contributed root transform:
+
+```text
+root = translation(0, 4.38, 4) * scale(4)
+propeller = root * translation(local offset)
+```
+
+The root height is `PLATFORM_HEIGHT + 4.0`, and the uniform scale is applied
+to both the component geometry and these model-local offsets:
+
+| Part | Local offset `(X, Y, Z)` |
+| --- | --- |
+| Left front | `(-0.1074, -0.0204, -0.0957)` |
+| Right front | `(0.1072, -0.0204, -0.0957)` |
+| Left back | `(-0.1074, -0.0204, 0.0915)` |
+| Right back | `(0.1072, -0.0204, 0.0915)` |
+
+This assembly provides the starting placement for the planned flight-path
+and component animation stages.
+
 ## Spotlight placeholder
 
 ![Spotlight placeholder](previews/placeholder.png)

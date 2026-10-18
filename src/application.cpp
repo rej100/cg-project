@@ -31,6 +31,11 @@ public:
 
         m_platformModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/platform.obj");
         m_reactorModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/reactor.obj");
+        m_drone_bodyModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/drone_body.obj");
+        m_l_b_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/L_B_propeller.obj");
+        m_l_f_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/L_F_propeller.obj");
+        m_r_b_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_B_propeller.obj");
+        m_r_f_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_F_propeller.obj");
 
         SceneObject platformObject {};
         platformObject.model = &m_platformModel;
@@ -42,6 +47,36 @@ public:
             glm::mat4(1.0f),
             glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f));
         m_sceneObjects.push_back(reactorObject);
+
+        m_droneBodyMatrix = glm::translate(
+            glm::mat4(1.0f),
+            glm::vec3(0.0f, PLATFORM_HEIGHT + 4.0f, 4.0f));
+        m_droneBodyMatrix = glm::scale(m_droneBodyMatrix, glm::vec3(4.0f));
+
+        SceneObject droneBodyObject {};
+        droneBodyObject.model = &m_drone_bodyModel;
+        droneBodyObject.modelMatrix = m_droneBodyMatrix;
+        m_sceneObjects.push_back(droneBodyObject);
+
+        SceneObject leftFrontPropellerObject {};
+        leftFrontPropellerObject.model = &m_l_f_propeller;
+        leftFrontPropellerObject.modelMatrix = glm::translate(m_droneBodyMatrix, m_l_f_propellerOffset);
+        m_sceneObjects.push_back(leftFrontPropellerObject);
+
+        SceneObject rightFrontPropellerObject {};
+        rightFrontPropellerObject.model = &m_r_f_propeller;
+        rightFrontPropellerObject.modelMatrix = glm::translate(m_droneBodyMatrix, m_r_f_propellerOffset);
+        m_sceneObjects.push_back(rightFrontPropellerObject);
+
+        SceneObject leftBackPropellerObject {};
+        leftBackPropellerObject.model = &m_l_b_propeller;
+        leftBackPropellerObject.modelMatrix = glm::translate(m_droneBodyMatrix, m_l_b_propellerOffset);
+        m_sceneObjects.push_back(leftBackPropellerObject);
+
+        SceneObject rightBackPropellerObject {};
+        rightBackPropellerObject.model = &m_r_b_propeller;
+        rightBackPropellerObject.modelMatrix = glm::translate(m_droneBodyMatrix, m_r_b_propellerOffset);
+        m_sceneObjects.push_back(rightBackPropellerObject);
 
         m_spotlightMarkerModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/placeholder.obj");
         m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
@@ -258,6 +293,18 @@ private:
 
     Model m_platformModel;
     Model m_reactorModel;
+    Model m_drone_bodyModel;
+    Model m_l_b_propeller;
+    Model m_l_f_propeller;
+    Model m_r_b_propeller;
+    Model m_r_f_propeller;
+    glm::mat4 m_droneBodyMatrix { 1.0f };
+    // Propeller positions relative to the drone body:
+    glm::vec3 m_l_f_propellerOffset { -0.1074f, -0.0204f, -0.0957f };
+    glm::vec3 m_r_f_propellerOffset { 0.1072f, -0.0204f, -0.0957f };
+    glm::vec3 m_l_b_propellerOffset { -0.1074f, -0.0204f, 0.0915f };
+    glm::vec3 m_r_b_propellerOffset { 0.1072f, -0.0204f, 0.0915f };
+
     std::vector<SceneObject> m_sceneObjects;
     Model m_spotlightMarkerModel;
     SceneObject m_spotlightMarkerObject {};

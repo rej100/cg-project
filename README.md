@@ -56,14 +56,20 @@ The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`
 Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
 `Application` and calls `update()` to run the input/rendering loop.
 
-The application opens **Reactor Inspection** and loads these models at their
-authored scale:
+The application opens **Reactor Inspection** and loads these model assets:
 
 | Model | Geometry | Placement |
 | --- | --- | --- |
 | `assets/models/platform.obj` | 12 m diameter, 0.38 m tall; 15,352 triangles in three material groups. | Identity transform, with its bottom at ground level. |
 | `assets/models/reactor.obj` | 3.5 m tall; 61,820 triangles in six material groups. | Translated by `(0, 0.38, 0)` to sit on the platform. |
+| `assets/models/drone_body.obj` | Textured drone body. | Root translation `(0, 4.38, 4)` and uniform scale 4. |
+| `assets/models/L_F_propeller.obj`, `R_F_propeller.obj`, `L_B_propeller.obj`, `R_B_propeller.obj` | Four separately loaded propeller models. | Drone root transform composed with each propeller's local offset. |
 | `assets/models/placeholder.obj` | Orange box/arrow spotlight marker; 30 triangles in one material group. | Its box center follows the spotlight position, with its arrow aligned to the light's aim. |
+
+The drone is a static assembly contributed through the partner's drone branch.
+Its root transform and propeller offsets are retained from that contribution;
+all seven exhibit objects are created explicitly and added to the scene vector.
+The [asset inventory](assets/README.md#drone) lists its files, textures, and offsets.
 
 The OBJ/MTL files supply material colors and base-color textures, including the
 marble, gold-colored trim, ceramic housing, and TU Delft logos. The cyan core
