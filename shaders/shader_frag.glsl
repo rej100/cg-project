@@ -14,9 +14,29 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
 // can be stored as srgb on gpu but texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
 uniform bool hasBaseColorTexture;
-uniform vec3 directionToLight; // World-space direction from the surface toward the light.
 uniform int shadingMode;
 uniform bool enableEmission;
+uniform float ambientStrength;
+
+struct DirectionalLight {
+    vec3 directionToLight; // World-space direction toward the light.
+    vec3 color; // linear rgb
+    float intensity;
+    bool enabled;
+};
+
+struct SpotLight {
+    vec3 position;
+    vec3 direction; // World-space direction from the light toward its target.
+    vec3 color; // linear rgb
+    float intensity;
+    float innerConeCos;
+    float outerConeCos;
+    bool enabled;
+};
+
+uniform DirectionalLight sun;
+uniform SpotLight spotlight;
 
 in vec3 fragPosition; // World-space position.
 in vec3 fragNormal;
@@ -30,12 +50,38 @@ const int SHADING_BASE_COLOR = 1;
 const int SHADING_NORMALS = 2;
 
 // input and output are linear rgb
-vec3 shadeDiffuse(vec3 baseColor, vec3 normal)
+vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
 {
-    const float ambient = 0.25;
-    const float lightStrength = 0.75;
-    float diffuse = max(dot(normal, normalize(directionToLight)), 0.0);
-    return baseColor * (ambient + lightStrength * diffuse);
+    float diffuse = max(dot(normal, directionToLight), 0.0);
+    return baseColor * incomingLight * diffuse;
+}
+
+vec3 shadeSun(vec3 baseColor, vec3 normal)
+{
+    if (!sun.enabled)
+        return vec3(0.0);
+
+    return shadeDiffuse(baseColor, normal, normalize(sun.directionToLight), sun.color * sun.intensity);
+}
+
+vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
+{
+    if (!spotlight.enabled)
+        return vec3(0.0);
+
+    vec3 toLight = spotlight.position - fragPosition;
+    float distanceSquared = dot(toLight, toLight);
+    if (distanceSquared < 0.000001)
+        return vec3(0.0);
+
+    vec3 directionToLight = toLight / sqrt(distanceSquared);
+    float coneAlignment = dot(spotlight.direction, -directionToLight);
+    float coneFactor = smoothstep(spotlight.outerConeCos, spotlight.innerConeCos, coneAlignment);
+    // Clamp inverse-square attenuation within 0.1 m of the source.
+    float attenuation = 1.0 / max(distanceSquared, 0.01);
+    vec3 incomingLight = spotlight.color * spotlight.intensity * attenuation * coneFactor;
+
+    return shadeDiffuse(baseColor, normal, directionToLight, incomingLight);
 }
 
 // convert linear rgb to srgb for display (copied)
@@ -69,7 +115,9 @@ void main()
     vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
     vec3 color = baseColor;
     if (shadingMode == SHADING_LIT) {
-        color = shadeDiffuse(baseColor, normal);
+        color = baseColor * ambientStrength;
+        color += shadeSun(baseColor, normal);
+        color += shadeSpotlight(baseColor, normal);
         if (enableEmission)
             color += emission;
     }

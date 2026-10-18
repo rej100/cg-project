@@ -83,9 +83,16 @@ emission values.
 | **Platform logo** | Frame the logo near the platform's front rim. |
 | **Shading** | Select **Lit**, **Base color**, or **Normals**. |
 | **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
+| **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
+| **Lighting → Sun enabled / intensity** | Toggle or adjust the directional sunlight. |
+| **Lighting → Spotlight enabled / intensity** | Toggle or adjust the showcase spotlight. |
+| **Lighting → Spot position / target** | Move and aim the spotlight in world-space meters. Drag a component or Ctrl-click to enter a value. |
+| **Lighting → Inner / outer half-angle** | Adjust the spotlight's fully lit cone and its smooth fade to zero. |
+| **Lighting → Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
 
-**Lit** uses a directional diffuse light plus a small constant ambient term,
-then adds material emission when enabled. Emission is independent of the surface's
+**Lit** adds directional sunlight, spotlight illumination, and one adjustable
+ambient-fill term, then adds material emission when enabled. All contributions
+are accumulated in linear RGB. Emission is independent of the surface's
 angle to the light. The core's `Ke (0, 1, 1.8)` already includes its authored
 strength and is used directly. The current SDR output clips channels above 1;
 HDR rendering and bloom are planned for preserving excess brightness and adding
@@ -93,6 +100,41 @@ a halo.
 **Base color** displays the material color or texture without lighting.
 **Normals** displays world-space surface normals, mapping XYZ components from
 [-1, 1] into RGB [0, 1]. The emission toggle affects only **Lit** mode.
+
+### Lighting and its marker
+
+The sun supplies white directional light with direction-to-light
+`(-0.4, 1, 0.6)` and default intensity 0.75. The spotlight starts at
+`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 20,
+and inner/outer cone half-angles of 18°/25°. Its direction is derived from
+`target - position`. Light settings are held in the simple structures in
+`src/light.h` and uploaded as ordinary uniforms for the scene.
+
+Spotlight illumination uses the world-space fragment-to-light direction,
+inverse-square distance attenuation, and a smooth cone factor between the
+cosines of the outer and inner half-angles. Attenuation is capped within 0.1 m
+of the source. Cone controls keep at least a 1° gap between the half-angles.
+Coincident position/target values use a downward aim.
+
+The ambient strength starts at 0.25 and is added once, independently of the
+two direct lights. Future environment-based diffuse lighting will replace this
+constant fill. Shadow mapping is a later stage, using an orthographic map for
+the sun and a perspective map for the spotlight.
+
+`src/light_marker.cpp` creates a 30-triangle box/arrow mesh once at startup.
+Its `Model` owns the GPU mesh, and an explicit `SceneObject` gets its transform
+from the spotlight's position and aim. The marker points along local −Z;
+the inverse light-view matrix places it in world space, with an alternate up
+axis for vertical aiming. It is drawn after the exhibit objects using the
+existing **Base color** path, then the selected shader mode is restored.
+The marker stays colored in every shading mode and with the lights disabled,
+while normal depth testing lets scene geometry obscure it.
+
+To compare the lights, use **Lit**, turn **Emission** off, and set
+**Ambient strength** to zero. Inspect the sun alone, the spotlight alone,
+and both together. With both lights off, the exhibit surfaces are black;
+the background and enabled debug marker remain visible. Moving the spotlight
+or its target updates the illumination and marker together.
 
 This is a basic material preview. The authored metallic/roughness properties,
 logo normal maps, and environment reflections are the next rendering stages.
@@ -106,10 +148,12 @@ The main rendering responsibilities are:
 | --- | --- |
 | `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images. |
 | `src/model.h` | Define `Model`, which owns GPU meshes, and `SceneObject`, which references a model and supplies its transform. |
+| `src/light.h` | Define directional/spotlight settings and derive the spotlight's aim direction. |
+| `src/light_marker.cpp` | Generate the debug box/arrow geometry in local coordinates. |
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
-| `src/application.cpp` | Own the models and scene instances, coordinate the camera and `drawUi()`, and supply shared render settings in `renderScene()` and per-object transforms in `drawObject()`. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply the selected preview shading. |
+| `src/application.cpp` | Own models, instances, and lights; coordinate the camera and UI; upload shared lighting settings and per-object transforms; draw the light marker. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply ambient fill, directional/spotlight diffuse shading, and emission in Lit mode. |
 
 The platform and reactor models are stable `Application` members. Scene objects
 reference those models, allowing one loaded model to be drawn at several

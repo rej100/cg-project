@@ -11,6 +11,7 @@ endif()
 
 add_executable(Master_TechDemo
     "src/application.cpp"
+    "src/light_marker.cpp"
     "src/texture.cpp"
 	"src/mesh.cpp"
 )
@@ -50,4 +51,3 @@ foreach (shader_file IN LISTS Master_TechDemo_shader_sources)
 endforeach()
 add_custom_target(Master_TechDemo_copy_shaders DEPENDS ${Master_TechDemo_shader_copies})
 add_dependencies(Master_TechDemo Master_TechDemo_copy_shaders)
-

@@ -9,9 +9,10 @@ marble top, narrow gold rim, and beveled satin-white base. An original-color
 TU Delft logo near the front edge provides an orientation marker and a clearly
 visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
-alongside the reactor, using simple directional diffuse lighting and ambient
-fill. The previews below are Blender renders of the full authored materials;
-application-side PBR, roughness, normal mapping, and reflections are planned next.
+alongside the reactor, using directional and spotlight diffuse lighting with
+adjustable ambient fill. The previews below are Blender renders of the full
+authored materials; application-side PBR, roughness, normal mapping, and
+reflections are planned next.
 
 ### Files
 

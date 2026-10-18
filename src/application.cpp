@@ -1,5 +1,7 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
+#include "light.h"
+#include "light_marker.h"
 #include "model.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -41,6 +43,11 @@ public:
             glm::mat4(1.0f),
             glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f));
         m_sceneObjects.push_back(reactorObject);
+
+        Mesh markerMesh = makeSpotlightMarkerMesh();
+        m_spotlightMarkerModel.meshes.emplace_back(markerMesh);
+        m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
+        std::cout << "Created spotlight marker: " << markerMesh.triangles.size() << " triangles\n";
 
         ShaderBuilder defaultBuilder;
         defaultBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
@@ -136,6 +143,9 @@ private:
             m_shadingMode = static_cast<ShadingMode>(shadingMode);
         ImGui::Checkbox("Emission", &m_enableEmission);
 
+        if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+            drawLightingUi();
+
         ImGui::Separator();
         ImGui::TextUnformatted("Left drag: orbit");
         ImGui::TextUnformatted("Right drag: pan");
@@ -147,6 +157,29 @@ private:
         if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
             m_window.setUiScale(uiScale);
         ImGui::End();
+    }
+
+    void drawLightingUi()
+    {
+        constexpr ImGuiSliderFlags clamped = ImGuiSliderFlags_AlwaysClamp;
+        ImGui::SliderFloat("Ambient strength", &m_ambientStrength, 0.0f, 1.0f, "%.2f", clamped);
+
+        ImGui::Separator();
+        ImGui::Checkbox("Sun enabled", &m_sun.enabled);
+        ImGui::SliderFloat("Sun intensity", &m_sun.intensity, 0.0f, 2.0f, "%.2f", clamped);
+
+        ImGui::Separator();
+        ImGui::Checkbox("Spotlight enabled", &m_spotlight.enabled);
+        ImGui::SliderFloat("Spotlight intensity", &m_spotlight.intensity, 0.0f, 150.0f, "%.1f", clamped);
+        ImGui::TextUnformatted("Position / target: world XYZ (m)");
+        ImGui::DragFloat3("Spot position", glm::value_ptr(m_spotlight.position), 0.05f);
+        ImGui::DragFloat3("Spot target", glm::value_ptr(m_spotlight.target), 0.05f);
+        // Keep a gap between the cone angles so smoothstep has distinct edges.
+        ImGui::SliderFloat("Inner half-angle", &m_spotlight.innerAngleDegrees,
+            0.0f, m_spotlight.outerAngleDegrees - 1.0f, "%.1f deg", clamped);
+        ImGui::SliderFloat("Outer half-angle", &m_spotlight.outerAngleDegrees,
+            m_spotlight.innerAngleDegrees + 1.0f, 89.0f, "%.1f deg", clamped);
+        ImGui::Checkbox("Show light marker", &m_showLightMarker);
     }
 
     void renderScene()
@@ -164,12 +197,34 @@ private:
 
         m_defaultShader.bind();
         glUniformMatrix4fv(m_defaultShader.getUniformLocation("viewProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(viewProjectionMatrix));
-        glUniform3fv(m_defaultShader.getUniformLocation("directionToLight"), 1, glm::value_ptr(m_directionToLight));
+        uploadLightUniforms();
         glUniform1i(m_defaultShader.getUniformLocation("shadingMode"), static_cast<int>(m_shadingMode));
         glUniform1i(m_defaultShader.getUniformLocation("enableEmission"), m_enableEmission);
 
         for (const SceneObject& object : m_sceneObjects)
             drawObject(object);
+
+        if (m_showLightMarker)
+            drawSpotlightMarker();
+    }
+
+    void uploadLightUniforms()
+    {
+        glUniform1f(m_defaultShader.getUniformLocation("ambientStrength"), m_ambientStrength);
+
+        glUniform3fv(m_defaultShader.getUniformLocation("sun.directionToLight"), 1, glm::value_ptr(m_sun.directionToLight));
+        glUniform3fv(m_defaultShader.getUniformLocation("sun.color"), 1, glm::value_ptr(m_sun.color));
+        glUniform1f(m_defaultShader.getUniformLocation("sun.intensity"), m_sun.intensity);
+        glUniform1i(m_defaultShader.getUniformLocation("sun.enabled"), m_sun.enabled);
+
+        const glm::vec3 spotlightDirection = m_spotlight.direction();
+        glUniform3fv(m_defaultShader.getUniformLocation("spotlight.position"), 1, glm::value_ptr(m_spotlight.position));
+        glUniform3fv(m_defaultShader.getUniformLocation("spotlight.direction"), 1, glm::value_ptr(spotlightDirection));
+        glUniform3fv(m_defaultShader.getUniformLocation("spotlight.color"), 1, glm::value_ptr(m_spotlight.color));
+        glUniform1f(m_defaultShader.getUniformLocation("spotlight.intensity"), m_spotlight.intensity);
+        glUniform1f(m_defaultShader.getUniformLocation("spotlight.innerConeCos"), glm::cos(glm::radians(m_spotlight.innerAngleDegrees)));
+        glUniform1f(m_defaultShader.getUniformLocation("spotlight.outerConeCos"), glm::cos(glm::radians(m_spotlight.outerAngleDegrees)));
+        glUniform1i(m_defaultShader.getUniformLocation("spotlight.enabled"), m_spotlight.enabled);
     }
 
     void drawObject(const SceneObject& object)
@@ -182,6 +237,24 @@ private:
             mesh.draw(m_defaultShader);
     }
 
+    void drawSpotlightMarker()
+    {
+        const glm::vec3 direction = m_spotlight.direction();
+        glm::vec3 up(0.0f, 1.0f, 0.0f);
+        if (glm::abs(glm::dot(direction, up)) > 0.99f)
+            up = glm::vec3(0.0f, 0.0f, 1.0f);
+
+        // Inverting the light's view maps the marker's local -Z onto its aim.
+        m_spotlightMarkerObject.modelMatrix = glm::inverse(glm::lookAt(
+            m_spotlight.position, m_spotlight.position + direction, up));
+
+        // Base color keeps the debug marker visible independently of lighting.
+        const GLint shadingModeLocation = m_defaultShader.getUniformLocation("shadingMode");
+        glUniform1i(shadingModeLocation, static_cast<int>(ShadingMode::BaseColor));
+        drawObject(m_spotlightMarkerObject);
+        glUniform1i(shadingModeLocation, static_cast<int>(m_shadingMode));
+    }
+
     Window m_window;
     Trackball m_camera;
 
@@ -192,9 +265,14 @@ private:
     Model m_platformModel;
     Model m_reactorModel;
     std::vector<SceneObject> m_sceneObjects;
+    Model m_spotlightMarkerModel;
+    SceneObject m_spotlightMarkerObject {};
+    bool m_showLightMarker { true };
     ShadingMode m_shadingMode { ShadingMode::Lit };
     bool m_enableEmission { true };
-    glm::vec3 m_directionToLight { -0.4f, 1.0f, 0.6f };
+    DirectionalLight m_sun;
+    SpotLight m_spotlight;
+    float m_ambientStrength { 0.25f };
 
     glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix { 1.0f };
