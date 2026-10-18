@@ -95,6 +95,9 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
     for (const Mesh& mesh : subMeshes) {
         gpuMeshes.emplace_back(mesh);
         triangleCount += mesh.triangles.size();
+
+        // debug
+
         std::cout << "  Material '" << gpuMeshes.back().materialName() << "': "
                   << mesh.triangles.size() << " triangles, "
                   << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color")
