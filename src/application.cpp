@@ -1,6 +1,6 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
-#include "mesh.h"
+#include "model.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <glad/glad.h>
@@ -22,12 +22,18 @@ DISABLE_WARNINGS_POP()
 class Application {
 public:
     Application()
-        : m_window("Reactor Inspection - Platform Viewer", glm::ivec2(1600, 900), OpenGLVersion::GL41)
+        : m_window("Reactor Inspection", glm::ivec2(1600, 900), OpenGLVersion::GL41)
         , m_camera(&m_window, glm::radians(CAMERA_FOV_DEGREES))
     {
         m_window.maximize();
         setOverviewCamera();
-        m_meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/platform.obj");
+        m_platformModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/platform.obj");
+        m_reactorModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/reactor.obj");
+        m_sceneObjects = {
+            { .model = &m_platformModel },
+            { .model = &m_reactorModel,
+                .modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f)) }
+        };
 
         ShaderBuilder defaultBuilder;
         defaultBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
@@ -68,6 +74,7 @@ public:
 
 private:
     static constexpr float CAMERA_FOV_DEGREES = 45.0f;
+    static constexpr float PLATFORM_HEIGHT = 0.38f;
 
     enum class ShadingMode {
         Lit,
@@ -77,31 +84,50 @@ private:
 
     void setOverviewCamera()
     {
-        // The platform's front (and logo) faces +Z in the exported model.
-        m_camera.setCamera(glm::vec3(0.0f, 0.2f, 0.0f),
-            glm::radians(glm::vec3(45.0f, 160.0f, 0.0f)), 16.0f);
+        // Both models face +Z in application coordinates.
+        m_camera.setCamera(glm::vec3(0.0f, 1.1f, 0.0f),
+            glm::radians(glm::vec3(35.0f, 160.0f, 0.0f)), 16.0f);
     }
 
-    void setLogoCamera()
+    void setReactorCamera()
     {
-        m_camera.setCamera(glm::vec3(0.0f, 0.38f, 4.4f),
+        m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT + 1.75f, 0.0f),
+            glm::radians(glm::vec3(20.0f, 155.0f, 0.0f)), 6.5f);
+    }
+
+    void setReactorPanelCamera()
+    {
+        m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT + 1.32f, 1.03f),
+            glm::radians(glm::vec3(5.0f, 180.0f, 0.0f)), 2.2f);
+    }
+
+    void setPlatformLogoCamera()
+    {
+        m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT, 4.4f),
             glm::radians(glm::vec3(55.0f, 180.0f, 0.0f)), 2.8f);
     }
 
     void drawUi()
     {
-        ImGui::Begin("Platform viewer", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Begin("Scene controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::TextUnformatted("Platform: 12 m diameter");
+        ImGui::TextUnformatted("Reactor: 3.5 m tall");
 
-        if (ImGui::Button("Overview"))
+        if (ImGui::Button("Scene overview"))
             setOverviewCamera();
         ImGui::SameLine();
-        if (ImGui::Button("Logo detail"))
-            setLogoCamera();
+        if (ImGui::Button("Reactor"))
+            setReactorCamera();
+        if (ImGui::Button("Reactor panel"))
+            setReactorPanelCamera();
+        ImGui::SameLine();
+        if (ImGui::Button("Platform logo"))
+            setPlatformLogoCamera();
 
         int shadingMode = static_cast<int>(m_shadingMode);
         if (ImGui::Combo("Shading", &shadingMode, "Lit\0Base color\0Normals\0"))
             m_shadingMode = static_cast<ShadingMode>(shadingMode);
+        ImGui::Checkbox("Emission", &m_enableEmission);
 
         ImGui::Separator();
         ImGui::TextUnformatted("Left drag: orbit");
@@ -128,16 +154,24 @@ private:
         glEnable(GL_DEPTH_TEST);
 
         const glm::mat4 viewProjectionMatrix = m_projectionMatrix * m_viewMatrix;
-        const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(m_modelMatrix));
 
         m_defaultShader.bind();
-        glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(m_modelMatrix));
         glUniformMatrix4fv(m_defaultShader.getUniformLocation("viewProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(viewProjectionMatrix));
-        glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
         glUniform3fv(m_defaultShader.getUniformLocation("directionToLight"), 1, glm::value_ptr(m_directionToLight));
         glUniform1i(m_defaultShader.getUniformLocation("shadingMode"), static_cast<int>(m_shadingMode));
+        glUniform1i(m_defaultShader.getUniformLocation("enableEmission"), m_enableEmission);
 
-        for (const GPUMesh& mesh : m_meshes)
+        for (const SceneObject& object : m_sceneObjects)
+            drawObject(object);
+    }
+
+    void drawObject(const SceneObject& object)
+    {
+        const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(object.modelMatrix));
+        glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(object.modelMatrix));
+        glUniformMatrix3fv(m_defaultShader.getUniformLocation("normalModelMatrix"), 1, GL_FALSE, glm::value_ptr(normalModelMatrix));
+
+        for (const GPUMesh& mesh : object.model->meshes)
             mesh.draw(m_defaultShader);
     }
 
@@ -148,14 +182,15 @@ private:
     Shader m_defaultShader;
     Shader m_shadowShader;
 
-    std::vector<GPUMesh> m_meshes;
+    Model m_platformModel;
+    Model m_reactorModel;
+    std::vector<SceneObject> m_sceneObjects;
     ShadingMode m_shadingMode { ShadingMode::Lit };
+    bool m_enableEmission { true };
     glm::vec3 m_directionToLight { -0.4f, 1.0f, 0.6f };
 
-    // Model coordinates are already in meters, centered at ground level.
     glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix { 1.0f };
-    glm::mat4 m_modelMatrix { 1.0f };
 };
 
 int main()

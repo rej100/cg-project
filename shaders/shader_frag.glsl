@@ -6,6 +6,7 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
     vec3 ks;
     float shininess;
     float transparency;
+    vec3 emission; // linear rgb
 };
 
 // in general everything is linear rgb except for the fragColor output
@@ -15,6 +16,7 @@ uniform sampler2D baseColorMap;
 uniform bool hasBaseColorTexture;
 uniform vec3 directionToLight; // World-space direction from the surface toward the light.
 uniform int shadingMode;
+uniform bool enableEmission;
 
 in vec3 fragPosition; // World-space position.
 in vec3 fragNormal;
@@ -65,7 +67,12 @@ void main()
     }
 
     vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
-    vec3 color = shadingMode == SHADING_LIT ? shadeDiffuse(baseColor, normal) : baseColor;
+    vec3 color = baseColor;
+    if (shadingMode == SHADING_LIT) {
+        color = shadeDiffuse(baseColor, normal);
+        if (enableEmission)
+            color += emission;
+    }
 
     fragColor = vec4(linearToSrgb(color), 1.0);
 }

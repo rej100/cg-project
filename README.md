@@ -56,31 +56,46 @@ The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`
 Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
 `Application` and calls `update()` to run the input/rendering loop.
 
-The application opens **Reactor Inspection - Platform Viewer** and loads
-`assets/models/platform.obj` at its authored scale: 12 m across and 0.38 m tall.
-The OBJ/MTL supplies three material groups: a satin-white base, a gold-colored
-rim, and a marble top with the TU Delft logo baked into its base-color texture.
-Startup output lists each material, its triangle count, and whether it uses a
-texture or a constant base color.
+The application opens **Reactor Inspection** and loads two models at their
+authored scale:
 
-### Platform viewer controls
+| Model | Geometry | Placement |
+| --- | --- | --- |
+| `assets/models/platform.obj` | 12 m diameter, 0.38 m tall; 15,352 triangles in three material groups. | Identity transform, with its bottom at ground level. |
+| `assets/models/reactor.obj` | 3.5 m tall; 61,820 triangles in six material groups. | Translated by `(0, 0.38, 0)` to sit on the platform. |
+
+The OBJ/MTL files supply material colors and base-color textures, including the
+marble, gold-colored trim, ceramic housing, and TU Delft logos. The cyan core
+also supplies linear emission through its MTL `Ke` value. Startup output lists
+each model and material, triangle counts, texture availability, and any nonzero
+emission values.
+
+### Scene controls
 
 | Control | Action |
 | --- | --- |
 | Left mouse drag over the scene | Orbit around the camera's target. |
 | Right mouse drag over the scene | Pan the camera and its target. |
 | Mouse wheel over the scene | Zoom in or out. |
-| **Overview** | Frame the whole platform from above its front side (+Z). |
-| **Logo detail** | Frame the logo near the front rim. |
+| **Scene overview** | Frame the platform and reactor from above their front side (+Z). |
+| **Reactor** | Frame the reactor more closely. |
+| **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
+| **Platform logo** | Frame the logo near the platform's front rim. |
 | **Shading** | Select **Lit**, **Base color**, or **Normals**. |
+| **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
 
-**Lit** uses a directional diffuse light plus a small constant ambient term.
+**Lit** uses a directional diffuse light plus a small constant ambient term,
+then adds material emission when enabled. Emission is independent of the surface's
+angle to the light. The core's `Ke (0, 1, 1.8)` already includes its authored
+strength and is used directly. The current SDR output clips channels above 1;
+HDR rendering and bloom are planned for preserving excess brightness and adding
+a halo.
 **Base color** displays the material color or texture without lighting.
 **Normals** displays world-space surface normals, mapping XYZ components from
-[-1, 1] into RGB [0, 1].
+[-1, 1] into RGB [0, 1]. The emission toggle affects only **Lit** mode.
 
 This is a basic material preview. The authored metallic/roughness properties,
-logo normal map, and environment reflections are the next rendering stages.
+logo normal maps, and environment reflections are the next rendering stages.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -90,10 +105,20 @@ The main rendering responsibilities are:
 | Code | Responsibility |
 | --- | --- |
 | `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images. |
+| `src/model.h` | Define `Model`, which owns GPU meshes, and `SceneObject`, which references a model and supplies its transform. |
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
-| `src/application.cpp` | Load the platform, coordinate the trackball camera, construct controls in `drawUi()`, and render in `renderScene()`. |
+| `src/application.cpp` | Own the models and scene instances, coordinate the camera and `drawUi()`, and supply shared render settings in `renderScene()` and per-object transforms in `drawObject()`. |
 | `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply the selected preview shading. |
+
+The platform and reactor models are stable `Application` members. Scene objects
+reference those models, allowing one loaded model to be drawn at several
+placements. `drawObject()` uploads each instance's model matrix and its
+inverse-transpose normal matrix before drawing the model's material groups.
+
+Emission follows `MTL Ke` → CPU `Material::emission` → `GPUMaterial` uniform
+buffer → the fragment shader's `Material` block. It is added in linear RGB
+before the final sRGB conversion.
 
 ### Window size and UI scaling
 
@@ -106,7 +131,7 @@ The main rendering responsibilities are:
   font at 100% scale**. For example, a detected display scale of 2× produces a
   36-pixel font with the default UI setting. The startup console reports both
   the detected scale and initial font size.
-- The **Platform viewer** panel shows **Display scale** and provides a **UI scale** slider
+- The **Scene controls** panel shows **Display scale** and provides a **UI scale** slider
   from **0.75× to 2.0×** for personal adjustment. This multiplier starts at 1.0×
   each launch and applies on top of the detected display scale:
 

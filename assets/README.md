@@ -9,7 +9,7 @@ marble top, narrow gold rim, and beveled satin-white base. An original-color
 TU Delft logo near the front edge provides an orientation marker and a clearly
 visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
-in the platform viewer, using simple directional diffuse lighting and ambient
+alongside the reactor, using simple directional diffuse lighting and ambient
 fill. The previews below are Blender renders of the full authored materials;
 application-side PBR, roughness, normal mapping, and reflections are planned next.
 
@@ -127,10 +127,12 @@ ceramic identity panel carries the original-color TU Delft logo, the caption
 countersunk fastener details. Wider ceramic bevels around the logo make the
 normal-map demonstration clearly visible, including around the dark lettering.
 
-The preview uses the platform as a sizing reference. The application still
-loads the platform viewer; the reactor export is ready for a separate model
-instance when scene assembly is implemented. Blender previews include the full
-PBR materials, emission, and a restrained compositor glow.
+The application loads the reactor as a separate model instance, translated by
+`(0, 0.38, 0)` to sit on the platform. It displays the base colors/textures and
+core emission, with camera presets for the complete assembly, reactor, panel,
+and platform logo. Blender previews include the full PBR materials, emission,
+and a restrained compositor glow; application-side PBR, normal mapping, and
+bloom are planned rendering stages.
 
 ### Files
 
@@ -164,8 +166,9 @@ assign materials by name rather than by mesh order.
 | `reactor_panel` | `reactor_panel_basecolor.png` | 0 | 0.24 | `reactor_panel_normal.png`, strength 1.5. |
 
 The core's Blender emission color is `(0, 0.25, 0.45)` with strength 4, exported
-as `Ke 0 1 1.8`. Importing the model into the application will require emission
-support to reproduce its luminous appearance.
+as `Ke 0 1 1.8`. The application reads this linear emission value directly and
+adds it in Lit mode when the **Emission** checkbox is enabled. HDR rendering and
+bloom will provide the surrounding halo in a later rendering stage.
 
 As with the platform, the panel's MTL reference is
 `map_Bump -bm 1.500000 ../textures/reactor_panel_normal.png`. Interpret this as a

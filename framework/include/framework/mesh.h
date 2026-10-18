@@ -27,6 +27,7 @@ struct Material {
 	glm::vec3 ks{ 0.0f };
 	float shininess{ 1.0f };
 	float transparency{ 1.0f };
+	glm::vec3 emission{ 0.0f }; // linear rgb
 
 	// Optional texture that replaces kd; use as follows:
 	// 

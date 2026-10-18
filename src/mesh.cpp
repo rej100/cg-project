@@ -11,7 +11,8 @@ GPUMaterial::GPUMaterial(const Material& material) :
     kd(material.kd),
     ks(material.ks),
     shininess(material.shininess),
-    transparency(material.transparency)
+    transparency(material.transparency),
+    emission(material.emission)
 {}
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
@@ -90,8 +91,12 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
         triangleCount += mesh.triangles.size();
         std::cout << "  Material '" << gpuMeshes.back().materialName() << "': "
                   << mesh.triangles.size() << " triangles, "
-                  << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color")
-                  << '\n';
+                  << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color");
+        if (mesh.material.emission != glm::vec3(0.0f)) {
+            const glm::vec3& emission = mesh.material.emission;
+            std::cout << ", emission (" << emission.x << ", " << emission.y << ", " << emission.z << ')';
+        }
+        std::cout << '\n';
     }
     std::cout << "Loaded " << gpuMeshes.size() << " meshes, " << triangleCount << " triangles\n";
     
