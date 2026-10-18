@@ -1,0 +1,53 @@
+# Blender 5.2.2 LTS MTL File: 'drone.blend'
+# www.blender.org
+
+newmtl 02_-_Default
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 1
+map_Kd ../textures/drone_chasis.png
+map_d ../textures/drone_chasis.png
+
+newmtl 03_-_Default
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 1
+map_Kd ../textures/drone_cam.png
+map_d ../textures/drone_cam.png
+
+newmtl 07_-_Default
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 1
+map_Kd ../textures/wing_parts.png
+map_d ../textures/wing_parts.png
+
+newmtl 08_-_Default
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 1
+map_Kd ../textures/wing_parts.png
+map_d ../textures/wing_parts.png
+
+newmtl 09_-_Default
+Ns 20.000006
+Ka 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 1
+map_Kd ../textures/drone_battery.png
+map_d ../textures/drone_battery.png
+
