@@ -1,7 +1,6 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
 #include "light.h"
-#include "light_marker.h"
 #include "model.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -44,10 +43,8 @@ public:
             glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f));
         m_sceneObjects.push_back(reactorObject);
 
-        Mesh markerMesh = makeSpotlightMarkerMesh();
-        m_spotlightMarkerModel.meshes.emplace_back(markerMesh);
+        m_spotlightMarkerModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/placeholder.obj");
         m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
-        std::cout << "Created spotlight marker: " << markerMesh.triangles.size() << " triangles\n";
 
         ShaderBuilder defaultBuilder;
         defaultBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
@@ -98,7 +95,7 @@ private:
 
     void setOverviewCamera()
     {
-        // Both models face +Z in application coordinates.
+        // The platform and reactor face +Z in application coordinates.
         m_camera.setCamera(glm::vec3(0.0f, 1.1f, 0.0f),
             glm::radians(glm::vec3(35.0f, 160.0f, 0.0f)), 16.0f);
     }

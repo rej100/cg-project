@@ -11,7 +11,6 @@ endif()
 
 add_executable(Master_TechDemo
     "src/application.cpp"
-    "src/light_marker.cpp"
     "src/texture.cpp"
 	"src/mesh.cpp"
 )

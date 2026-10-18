@@ -56,13 +56,14 @@ The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`
 Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
 `Application` and calls `update()` to run the input/rendering loop.
 
-The application opens **Reactor Inspection** and loads two models at their
+The application opens **Reactor Inspection** and loads these models at their
 authored scale:
 
 | Model | Geometry | Placement |
 | --- | --- | --- |
 | `assets/models/platform.obj` | 12 m diameter, 0.38 m tall; 15,352 triangles in three material groups. | Identity transform, with its bottom at ground level. |
 | `assets/models/reactor.obj` | 3.5 m tall; 61,820 triangles in six material groups. | Translated by `(0, 0.38, 0)` to sit on the platform. |
+| `assets/models/placeholder.obj` | Orange box/arrow spotlight marker; 30 triangles in one material group. | Its box center follows the spotlight position, with its arrow aligned to the light's aim. |
 
 The OBJ/MTL files supply material colors and base-color textures, including the
 marble, gold-colored trim, ceramic housing, and TU Delft logos. The cyan core
@@ -124,9 +125,11 @@ two direct lights. Future environment-based diffuse lighting will replace this
 constant fill. Shadow mapping is a later stage, using an orthographic map for
 the sun and a perspective map for the spotlight.
 
-`src/light_marker.cpp` creates a 30-triangle box/arrow mesh once at startup.
-Its `Model` owns the GPU mesh, and an explicit `SceneObject` gets its transform
-from the spotlight's position and aim. The marker points along local −Z;
+`assets/models/placeholder.obj` is a Blender-authored, 30-triangle box/arrow
+marker, loaded through the same OBJ/MTL pipeline as the exhibit models. Its
+editable source is `assets/source/placeholder.blend`. The marker's `Model` owns
+the GPU mesh, and an explicit `SceneObject` gets its transform from the
+spotlight's position and aim. The marker points along local −Z;
 the inverse light-view matrix places it in world space, with an alternate up
 axis for vertical aiming. It is drawn after the exhibit objects using the
 existing **Base color** path, then the selected shader mode is restored.
@@ -152,13 +155,12 @@ The main rendering responsibilities are:
 | `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images. |
 | `src/model.h` | Define `Model`, which owns GPU meshes, and `SceneObject`, which references a model and supplies its transform. |
 | `src/light.h` | Define directional/spotlight settings and derive the spotlight's aim direction. |
-| `src/light_marker.cpp` | Generate the debug box/arrow geometry in local coordinates. |
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
 | `src/application.cpp` | Own models, instances, and lights; coordinate the camera and UI; upload shared lighting settings and per-object transforms; draw the light marker. |
 | `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply ambient fill, directional/spotlight diffuse shading, and emission in Lit mode. |
 
-The platform and reactor models are stable `Application` members. Scene objects
+The loaded models are stable `Application` members. Scene objects
 reference those models, allowing one loaded model to be drawn at several
 placements. `drawObject()` uploads each instance's model matrix and its
 inverse-transpose normal matrix before drawing the model's material groups.

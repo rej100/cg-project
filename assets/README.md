@@ -226,3 +226,41 @@ UVs, custom normals, and 2.49 × 2.49 × 3.5 m bounds. The panel comparison rend
 use the exported PNGs with identical camera and lighting. The model and textures
 were created for this project in Blender; the logo artwork is credited to TU Delft
 and comes from the user-provided SVG.
+
+## Spotlight placeholder
+
+![Spotlight placeholder](previews/placeholder.png)
+
+A small orange box and arrow used to show the spotlight's position and aim.
+The 0.30 m box is centered at the shared origin, and the arrow tip is 1.10 m
+from that origin. It has 30 triangles and one constant-color material,
+`spotlight_marker`, with linear base color `(1, 0.24, 0.015)` and zero emission.
+It was authored for this project in Blender and uses no textures.
+
+### Files
+
+| File | Purpose |
+| --- | --- |
+| `source/placeholder.blend` | Editable box, shaft, and arrowhead in one mesh, with a preview camera and softbox. |
+| `models/placeholder.obj` / `models/placeholder.mtl` | Triangulated marker with flat normals, one material group, and no UV references. |
+| `previews/placeholder.png` | 512 × 512 Blender preview. |
+
+### Coordinates and application use
+
+- The origin is the **box center**, representing the light source position.
+- The source uses meters with **Z up**; the arrow points along Blender **+Y**.
+- Export selected geometry with **Y up**, **−Z forward**, scale 1,
+  triangulation, normals, and materials. The exported arrow therefore points
+  along application **−Z**, with its tip at `(0, 0, -1.10)`.
+- The exported bounds are X/Y `[-0.18, 0.18]` and Z `[-1.10, 0.15]`, giving
+  dimensions **0.36 × 0.36 × 1.25 m**.
+- **`Placeholder | EXPORT`** contains the asset mesh; **`Studio | PREVIEW ONLY`**
+  contains the camera and softbox, excluded from the OBJ export. The source
+  opens with the marker selected and framed in a material-colored solid view.
+- The application loads the OBJ at its authored scale, derives the marker's
+  transform from the spotlight position/target, and draws it using Base color
+  shading. The **Show light marker** checkbox controls its visibility.
+
+The three component surfaces are closed, with no boundary or non-manifold
+edges. Exported geometry, material color, triangle count, and arrow-axis
+convention were checked against the application's original marker.
