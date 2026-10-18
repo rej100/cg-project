@@ -8,8 +8,8 @@ Ks 0.000000 0.000000 0.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 1
-map_Kd Drone Chassis.png
-map_d Drone Chassis.png
+map_Kd ../textures/drone_chasis.png
+map_d ../textures/drone_chasis.png
 
 newmtl 03_-_Default
 Ns 20.000006
@@ -18,8 +18,8 @@ Ks 0.000000 0.000000 0.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 1
-map_Kd Drone Cam.png
-map_d Drone Cam.png
+map_Kd ../textures/drone_cam.png
+map_d ../textures/drone_cam.png
 
 newmtl 07_-_Default
 Ns 20.000006
@@ -28,8 +28,8 @@ Ks 0.000000 0.000000 0.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 1
-map_Kd Drone Motor.png
-map_d Drone Motor.png
+map_Kd ../textures/wing_parts.png
+map_d ../textures/wing_parts.png
 
 newmtl 08_-_Default
 Ns 20.000006
@@ -38,8 +38,8 @@ Ks 0.000000 0.000000 0.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 1
-map_Kd Wing Parts.png
-map_d Wing Parts.png
+map_Kd ../textures/wing_parts.png
+map_d ../textures/wing_parts.png
 
 newmtl 09_-_Default
 Ns 20.000006
@@ -48,5 +48,6 @@ Ks 0.000000 0.000000 0.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 1
-map_Kd Drone Battery.png
-map_d Drone Battery.png
+map_Kd ../textures/drone_battery.png
+map_d ../textures/drone_battery.png
+
