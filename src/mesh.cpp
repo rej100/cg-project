@@ -3,15 +3,27 @@
 DISABLE_WARNINGS_PUSH()
 #include <fmt/format.h>
 DISABLE_WARNINGS_POP()
+#include <cstddef>
 #include <iostream>
 #include <utility>
 #include <vector>
+
+static_assert(offsetof(GPUMaterial, kd) == 0);
+static_assert(offsetof(GPUMaterial, ks) == 16);
+static_assert(offsetof(GPUMaterial, shininess) == 28);
+static_assert(offsetof(GPUMaterial, transparency) == 32);
+static_assert(offsetof(GPUMaterial, metallic) == 36);
+static_assert(offsetof(GPUMaterial, roughness) == 40);
+static_assert(offsetof(GPUMaterial, emission) == 48);
+static_assert(sizeof(GPUMaterial) == 64);
 
 GPUMaterial::GPUMaterial(const Material& material) :
     kd(material.kd),
     ks(material.ks),
     shininess(material.shininess),
     transparency(material.transparency),
+    metallic(material.metallic),
+    roughness(material.roughness),
     emission(material.emission)
 {}
 
@@ -21,6 +33,9 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
     // our base color textures should be srgb
     if (cpuMesh.material.kdTexture)
         m_baseColorTexture.emplace(*cpuMesh.material.kdTexture, TextureColorSpace::Srgb);
+
+    if (cpuMesh.material.roughnessTexture)
+        m_roughnessTexture.emplace(*cpuMesh.material.roughnessTexture, TextureColorSpace::Linear);
 
     // Create uniform buffer to store mesh material (https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL)
     GPUMaterial gpuMaterial(cpuMesh.material);
@@ -91,7 +106,10 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
         triangleCount += mesh.triangles.size();
         std::cout << "  Material '" << gpuMeshes.back().materialName() << "': "
                   << mesh.triangles.size() << " triangles, "
-                  << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color");
+                  << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color")
+                  << ", metallic " << mesh.material.metallic
+                  << ", roughness " << mesh.material.roughness
+                  << (gpuMeshes.back().hasRoughnessTexture() ? " + roughness texture" : " (constant)");
         if (mesh.material.emission != glm::vec3(0.0f)) {
             const glm::vec3& emission = mesh.material.emission;
             std::cout << ", emission (" << emission.x << ", " << emission.y << ", " << emission.z << ')';
@@ -106,6 +124,11 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
 bool GPUMesh::hasBaseColorTexture() const
 {
     return m_baseColorTexture.has_value();
+}
+
+bool GPUMesh::hasRoughnessTexture() const
+{
+    return m_roughnessTexture.has_value();
 }
 
 const std::string& GPUMesh::materialName() const
@@ -135,6 +158,7 @@ void GPUMesh::moveInto(GPUMesh&& other) noexcept
     m_numIndices = other.m_numIndices;
     m_materialName = std::move(other.m_materialName);
     m_baseColorTexture = std::move(other.m_baseColorTexture);
+    m_roughnessTexture = std::move(other.m_roughnessTexture);
     m_ibo = other.m_ibo;
     m_vbo = other.m_vbo;
     m_vao = other.m_vao;
@@ -142,6 +166,7 @@ void GPUMesh::moveInto(GPUMesh&& other) noexcept
 
     other.m_numIndices = 0;
     other.m_baseColorTexture.reset();
+    other.m_roughnessTexture.reset();
     other.m_ibo = INVALID;
     other.m_vbo = INVALID;
     other.m_vao = INVALID;
@@ -159,6 +184,7 @@ void GPUMesh::freeGpuMemory()
     if (m_uboMaterial != INVALID)
         glDeleteBuffers(1, &m_uboMaterial);
     m_baseColorTexture.reset();
+    m_roughnessTexture.reset();
     m_vao = m_vbo = m_ibo = m_uboMaterial = INVALID;
     m_numIndices = 0;
 }

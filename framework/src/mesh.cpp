@@ -135,6 +135,11 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
                 mesh.material.ks = construct_vec3(objMaterial.specular);
                 mesh.material.shininess = objMaterial.shininess;
                 mesh.material.transparency = objMaterial.dissolve;
+                mesh.material.metallic = objMaterial.metallic;
+                mesh.material.roughness = objMaterial.roughness;
+                if (!objMaterial.roughness_texname.empty()) {
+                    mesh.material.roughnessTexture = std::make_shared<Image>(baseDir / objMaterial.roughness_texname);
+                }
                 mesh.material.emission = construct_vec3(objMaterial.emission);
             }
 

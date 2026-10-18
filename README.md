@@ -72,10 +72,14 @@ all seven exhibit objects are created explicitly and added to the scene vector.
 The [asset inventory](assets/README.md#drone) lists its files, textures, and offsets.
 
 The OBJ/MTL files supply material colors and base-color textures, including the
-marble, gold-colored trim, ceramic housing, and TU Delft logos. The cyan core
-also supplies linear emission through its MTL `Ke` value. Startup output lists
-each model and material, triangle counts, texture availability, and any nonzero
-emission values.
+marble, gold-colored trim, ceramic housing, and TU Delft logos. Metallic (`Pm`)
+and roughness (`Pr`) constants are copied into each GPU material, and roughness
+images (`map_Pr`) are loaded and uploaded as linear/non-color textures for the
+upcoming PBR shading stage. Missing `Pm` and `Pr` use tinyobjloader's existing
+default of 0. The cyan core also supplies linear emission through its MTL `Ke`
+value. Startup output lists each model and material, triangle counts, base-color
+and roughness texture availability, metallic and roughness constants, and any
+nonzero emission values.
 
 ### Scene controls
 
@@ -148,8 +152,10 @@ and both together. With both lights off, the exhibit surfaces are black;
 the background and enabled debug marker remain visible. Changing the configured
 spotlight position or target updates both the illumination and marker placement.
 
-This is a basic material preview. The authored metallic/roughness properties,
-logo normal maps, and environment reflections are the next rendering stages.
+This is a basic diffuse material preview. Metallic/roughness data and roughness
+textures are available on the GPU; PBR lighting and roughness-texture sampling
+are the next rendering stage, followed by logo normal maps and environment
+reflections.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -350,10 +356,10 @@ emissive surfaces can use constant material parameters instead of extra images.
 | `assets/README.md` | Asset inventory, authorship, source links, licenses, and modifications, including our own generated assets. |
 
 Base-color textures use sRGB color interpretation; roughness and normal maps are
-linear data. Normal maps use a consistent tangent-space convention. Marble,
-ceramic, gold, aluminium, and dark sensor materials have separate
-metallic/roughness defaults so they remain distinct when texture sampling is
-disabled. Marble is a nonmetallic, opaque PBR material; its polished finish
+linear data. Normal maps use a consistent tangent-space convention. When material
+textures are disabled, use the constants supplied by the MTL loader, including
+its defaults for missing properties; missing metallic and roughness are both 0.
+Marble is a nonmetallic, opaque PBR material; its polished finish
 contrasts with the satin ceramic housing. Gold trim uses separate geometry and a
 metallic material, keeping the marble texture set simple.
 

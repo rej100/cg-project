@@ -27,6 +27,8 @@ struct Material {
 	glm::vec3 ks{ 0.0f };
 	float shininess{ 1.0f };
 	float transparency{ 1.0f };
+	float metallic{ 0.0f };
+	float roughness{ 0.0f };
 	glm::vec3 emission{ 0.0f }; // linear rgb
 
 	// Optional texture that replaces kd; use as follows:
@@ -35,6 +37,7 @@ struct Material {
 	//   material.kdTexture->getTexel(...);
 	// }
 	std::shared_ptr<Image> kdTexture;
+	std::shared_ptr<Image> roughnessTexture; // Optional linear/non-color image that replaces roughness.
 };
 
 struct Mesh {

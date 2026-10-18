@@ -26,6 +26,8 @@ struct GPUMaterial {
     alignas(16) glm::vec3 ks { 0.0f };
     float shininess { 1.0f };
     float transparency { 1.0f };
+    float metallic { 0.0f };
+    float roughness { 0.0f };
     alignas(16) glm::vec3 emission { 0.0f }; // linear rgb
 };
 
@@ -46,9 +48,10 @@ public:
     GPUMesh& operator=(GPUMesh&&) noexcept;
 
     bool hasBaseColorTexture() const;
+    bool hasRoughnessTexture() const;
     const std::string& materialName() const;
 
-    // Bind this mesh's material and texture, then draw its indexed geometry.
+    // Bind this mesh's material and base-color texture, then draw its indexed geometry.
     void draw(const Shader& drawingShader) const;
 
 private:
@@ -61,6 +64,7 @@ private:
     GLsizei m_numIndices { 0 };
     std::string m_materialName;
     std::optional<Texture> m_baseColorTexture;
+    std::optional<Texture> m_roughnessTexture;
     GLuint m_ibo { INVALID };
     GLuint m_vbo { INVALID };
     GLuint m_vao { INVALID };

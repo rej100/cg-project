@@ -6,6 +6,8 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
     vec3 ks;
     float shininess;
     float transparency;
+    float metallic;
+    float roughness;
     vec3 emission; // linear rgb
 };
 

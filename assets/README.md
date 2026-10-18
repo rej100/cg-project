@@ -11,8 +11,8 @@ visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
 alongside the reactor, using directional and spotlight diffuse lighting with
 adjustable ambient fill. The previews below are Blender renders of the full
-authored materials; application-side PBR, roughness, normal mapping, and
-reflections are planned next.
+authored materials; application-side PBR shading, roughness-texture sampling,
+normal mapping, and reflections are planned next.
 
 ### Files
 
@@ -32,10 +32,13 @@ reflections are planned next.
 
 ### Materials
 
-The application retains the OBJ's material names and reads their colors and
-base-color texture references from the MTL. The table below describes the full
-authored materials, including properties for the upcoming PBR renderer. Constant
-RGB values are linear shader values. All three materials have zero emission.
+The application retains the OBJ's material names and reads their colors,
+metallic/roughness constants, and base-color/roughness image references from the
+MTL. Roughness images are uploaded as linear/non-color textures. Missing `Pm`
+and `Pr` use tinyobjloader's existing default of 0, including the omitted `Pr`
+for textured marble. The table below describes the full authored materials,
+including properties for the upcoming PBR renderer. Constant RGB values are
+linear shader values. All three materials have zero emission.
 
 | Material name | Base color | Metallic | Roughness | Normal mapping |
 | --- | --- | --- | --- | --- |
@@ -251,7 +254,8 @@ the OBJ/MTL pipeline and creates one scene object for each part.
 
 The material files reference the PNGs through relative `../textures/` paths.
 Base-color images are interpreted as sRGB by the application. All supplied
-drone materials have zero emission.
+drone materials have zero emission. Their MTLs omit `Pm` and `Pr`, so the
+application imports metallic 0 and roughness 0 using tinyobjloader's defaults.
 
 ### Placement and part transforms
 
