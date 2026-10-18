@@ -122,8 +122,8 @@ A 3.5 m tall static reactor with a 2.49 m diameter footprint: a marble pedestal,
 gold collar, three curved ceramic housings, three gold structural supports,
 three gold field rings, a dark inner recess, and an emissive cyan energy column.
 The crown has radial cooling vents and a luminous upper aperture. A front-facing
-ceramic identity panel carries the original-color TU Delft logo, a technical
-caption, a recessed identity well, a broad lower channel, and four baked
+ceramic identity panel carries the original-color TU Delft logo, the caption
+**REACTOR 1337 / GROUP 4**, a recessed identity well, a broad lower channel, and four baked
 countersunk fastener details. Wider ceramic bevels around the logo make the
 normal-map demonstration clearly visible, including around the dark lettering.
 
