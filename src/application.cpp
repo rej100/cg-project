@@ -27,13 +27,20 @@ public:
     {
         m_window.maximize();
         setOverviewCamera();
+
         m_platformModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/platform.obj");
         m_reactorModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/reactor.obj");
-        m_sceneObjects = {
-            { .model = &m_platformModel },
-            { .model = &m_reactorModel,
-                .modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f)) }
-        };
+
+        SceneObject platformObject {};
+        platformObject.model = &m_platformModel;
+        m_sceneObjects.push_back(platformObject);
+
+        SceneObject reactorObject {};
+        reactorObject.model = &m_reactorModel;
+        reactorObject.modelMatrix = glm::translate(
+            glm::mat4(1.0f),
+            glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f));
+        m_sceneObjects.push_back(reactorObject);
 
         ShaderBuilder defaultBuilder;
         defaultBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
