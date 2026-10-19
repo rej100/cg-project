@@ -15,10 +15,14 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
 
 // can be stored as srgb on gpu but texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
+uniform sampler2D roughnessMap;
 uniform bool hasBaseColorTexture;
+uniform bool hasRoughnessTexture;
 uniform int shadingMode;
 uniform bool enableEmission;
+uniform bool enableMaterialTextures;
 uniform float ambientStrength;
+uniform vec3 cameraPosition;
 
 struct DirectionalLight {
     vec3 directionToLight; // World-space direction toward the light.
@@ -47,8 +51,13 @@ layout(location = 0) out vec4 fragColor;
 
 // this has to be the same as Application::ShadingMode
 const int SHADING_LIT = 0;
-const int SHADING_BASE_COLOR = 1;
-const int SHADING_NORMALS = 2;
+const int SHADING_PBR = 1;
+const int SHADING_BASE_COLOR = 2;
+const int SHADING_NORMALS = 3;
+
+const float PI = 3.14159265359;
+// keeps the PBR BRDF numerically well-defined for zero-roughness materials
+const float MIN_ROUGHNESS = 0.045;
 
 // input and output are linear rgb
 vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
@@ -82,6 +91,73 @@ vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
     return shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
 }
 
+// Simplified scalar Cook-Torrance terms: GGX distribution, Smith visibility, Schlick fresnel.
+float pbrDistribution(float nDotH, float alpha)
+{
+    float alpha2 = alpha * alpha;
+    float denominator = nDotH * nDotH * (alpha2 - 1.0) + 1.0;
+    return alpha2 / (PI * denominator * denominator);
+}
+
+float pbrVisibility(float nDotV, float nDotL, float roughness)
+{
+    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+    return (nDotV / (nDotV * k + 1.0)) * (nDotL / (nDotL * k + 1.0));
+}
+
+vec3 pbrFresnel(float hDotV, vec3 f0)
+{
+    return f0 + (1.0 - f0) * pow(1.0 - hDotV, 5.0);
+}
+
+// Metallic/roughness response to one light. All inputs and the result are linear rgb.
+vec3 shadePBR(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection, vec3 directionToLight, vec3 incomingLight)
+{
+    vec3 halfVector = normalize(viewDirection + directionToLight);
+    float nDotL = max(dot(normal, directionToLight), 0.0);
+    float nDotV = max(dot(normal, viewDirection), 0.0);
+    float nDotH = max(dot(normal, halfVector), 0.0);
+    float hDotV = max(dot(halfVector, viewDirection), 0.0);
+
+    // Dielectrics reflect about 4% at all angles; metals use their base color.
+    vec3 f0 = mix(vec3(0.04), baseColor, metallic);
+    float alpha = roughness * roughness;
+
+    float distribution = pbrDistribution(nDotH, alpha);
+    float visibility = pbrVisibility(nDotV, nDotL, roughness);
+    vec3 fresnel = pbrFresnel(hDotV, f0);
+
+    vec3 specular = distribution * visibility * fresnel / max(4.0 * nDotV * nDotL, 0.0001);
+    vec3 diffuse = (1.0 - fresnel) * (1.0 - metallic) * baseColor / PI;
+
+    return (diffuse + specular) * incomingLight * nDotL;
+}
+
+vec3 shadePbrSun(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection)
+{
+    if (!sun.enabled)
+        return vec3(0.0);
+
+    return shadePBR(baseColor, metallic, roughness, normal, viewDirection, normalize(sun.directionToLight), sun.color * sun.intensity);
+}
+
+vec3 shadePbrSpotlight(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection)
+{
+    if (!spotlight.enabled)
+        return vec3(0.0);
+
+    vec3 toLight = spotlight.position - fragPosition;
+    if (dot(toLight, toLight) < 0.000001)
+        return vec3(0.0);
+
+    vec3 directionToLight = normalize(toLight);
+    float coneAlignment = dot(spotlight.direction, -directionToLight);
+    if (coneAlignment < spotlight.coneCos)
+        return vec3(0.0);
+
+    return shadePBR(baseColor, metallic, roughness, normal, viewDirection, directionToLight, spotlight.color * spotlight.intensity);
+}
+
 // convert linear rgb to srgb for display (copied)
 vec3 linearToSrgb(vec3 color)
 {
@@ -110,12 +186,27 @@ void main()
         return;
     }
 
-    vec3 baseColor = hasBaseColorTexture ? texture(baseColorMap, fragTexCoord).rgb : kd;
+    vec3 baseColor = kd;
+    float surfaceRoughness = max(roughness, MIN_ROUGHNESS);
+    if (enableMaterialTextures) {
+        if (hasBaseColorTexture)
+            baseColor = texture(baseColorMap, fragTexCoord).rgb;
+        if (hasRoughnessTexture)
+            surfaceRoughness = max(texture(roughnessMap, fragTexCoord).r, MIN_ROUGHNESS);
+    }
+
     vec3 color = baseColor;
     if (shadingMode == SHADING_LIT) {
         color = baseColor * ambientStrength;
         color += shadeSun(baseColor, normal);
         color += shadeSpotlight(baseColor, normal);
+        if (enableEmission)
+            color += emission;
+    } else if (shadingMode == SHADING_PBR) {
+        vec3 viewDirection = normalize(cameraPosition - fragPosition);
+        color = baseColor * ambientStrength;
+        color += shadePbrSun(baseColor, metallic, surfaceRoughness, normal, viewDirection);
+        color += shadePbrSpotlight(baseColor, metallic, surfaceRoughness, normal, viewDirection);
         if (enableEmission)
             color += emission;
     }

@@ -9,10 +9,9 @@ marble top, narrow gold rim, and beveled satin-white base. An original-color
 TU Delft logo near the front edge provides an orientation marker and a clearly
 visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
-alongside the reactor, using directional and spotlight diffuse lighting with
-adjustable ambient fill. The previews below are Blender renders of the full
-authored materials; application-side PBR shading, roughness-texture sampling,
-normal mapping, and reflections are planned next.
+alongside the reactor, using directional and spotlight lighting with adjustable
+ambient fill. The previews below are Blender renders of the full authored
+materials; application-side normal mapping and reflections are planned next.
 
 ### Files
 
@@ -36,9 +35,12 @@ The application retains the OBJ's material names and reads their colors,
 metallic/roughness constants, and base-color/roughness image references from the
 MTL. Roughness images are uploaded as linear/non-color textures. Missing `Pm`
 and `Pr` use tinyobjloader's existing default of 0, including the omitted `Pr`
-for textured marble. The table below describes the full authored materials,
-including properties for the upcoming PBR renderer. Constant RGB values are
-linear shader values. All three materials have zero emission.
+for textured marble; `platform_marble` has no `Kd` either (Blender omits
+constants for connected texture inputs) and imports the gray (0.6, 0.6, 0.6)
+fallback after our vendored-copy bugfix. Under PBR shading with material
+textures enabled, the roughness image supplies marble's variation. The table
+below describes the full authored materials that the PBR renderer uses. Constant
+RGB values are linear shader values. All three materials have zero emission.
 
 | Material name | Base color | Metallic | Roughness | Normal mapping |
 | --- | --- | --- | --- | --- |
@@ -135,8 +137,8 @@ The application loads the reactor as a separate model instance, translated by
 `(0, 0.38, 0)` to sit on the platform. It displays the base colors/textures and
 core emission, with camera presets for the complete assembly, reactor, panel,
 and platform logo. Blender previews include the full PBR materials, emission,
-and a restrained compositor glow; application-side PBR, normal mapping, and
-bloom are planned rendering stages.
+and a restrained compositor glow; application-side normal mapping and bloom are
+planned rendering stages.
 
 ### Files
 

@@ -124,6 +124,7 @@ private:
 
     enum class ShadingMode {
         Lit,
+        Pbr,
         BaseColor,
         Normals
     };
@@ -171,9 +172,11 @@ private:
             setPlatformLogoCamera();
 
         int shadingMode = static_cast<int>(m_shadingMode);
-        if (ImGui::Combo("Shading", &shadingMode, "Lit\0Base color\0Normals\0"))
+        if (ImGui::Combo("Shading", &shadingMode, "Lit\0PBR\0Base color\0Normals\0"))
             m_shadingMode = static_cast<ShadingMode>(shadingMode);
         ImGui::Checkbox("Emission", &m_enableEmission);
+        ImGui::SameLine(ImGui::GetFontSize() * 9.0f);
+        ImGui::Checkbox("Material textures", &m_enableMaterialTextures);
 
         if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
             drawLightingUi();
@@ -230,6 +233,8 @@ private:
         uploadLightUniforms();
         glUniform1i(m_defaultShader.getUniformLocation("shadingMode"), static_cast<int>(m_shadingMode));
         glUniform1i(m_defaultShader.getUniformLocation("enableEmission"), m_enableEmission);
+        glUniform1i(m_defaultShader.getUniformLocation("enableMaterialTextures"), m_enableMaterialTextures);
+        glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
 
         for (const SceneObject& object : m_sceneObjects)
             drawObject(object);
@@ -311,6 +316,7 @@ private:
     bool m_showLightMarker { true };
     ShadingMode m_shadingMode { ShadingMode::Lit };
     bool m_enableEmission { true };
+    bool m_enableMaterialTextures { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };

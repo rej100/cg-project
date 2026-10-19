@@ -140,6 +140,11 @@ void GPUMesh::draw(const Shader& drawingShader) const
     glUniform1i(drawingShader.getUniformLocation("baseColorMap"), 0);
     if (m_baseColorTexture)
         m_baseColorTexture->bind(GL_TEXTURE0);
+
+    glUniform1i(drawingShader.getUniformLocation("hasRoughnessTexture"), hasRoughnessTexture());
+    glUniform1i(drawingShader.getUniformLocation("roughnessMap"), 1);
+    if (m_roughnessTexture)
+        m_roughnessTexture->bind(GL_TEXTURE1);
     
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);

@@ -76,10 +76,14 @@ marble, gold-colored trim, ceramic housing, and TU Delft logos. Metallic (`Pm`)
 and roughness (`Pr`) constants are copied into each GPU material, and roughness
 images (`map_Pr`) are loaded and uploaded as linear/non-color textures for the
 upcoming PBR shading stage. Missing `Pm` and `Pr` use tinyobjloader's existing
-default of 0. The cyan core also supplies linear emission through its MTL `Ke`
-value. Startup output lists each model and material, triangle counts, base-color
-and roughness texture availability, metallic and roughness constants, and any
-nonzero emission values.
+default of 0. Materials that reference a base-color texture without an explicit
+`Kd` (the marbles and reactor panel; Blender omits constants for connected
+texture inputs) import tinyobjloader's documented gray fallback (0.6, 0.6,
+0.6); we fixed a vendored-copy bug where `has_kd` leaked between materials and
+skipped that fallback. The cyan core also supplies linear emission through its
+MTL `Ke` value. Startup output lists each model and material, triangle counts,
+base-color and roughness texture availability, metallic and roughness
+constants, and any nonzero emission values.
 
 ### Scene controls
 
@@ -92,7 +96,8 @@ nonzero emission values.
 | **Reactor** | Frame the reactor more closely. |
 | **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
 | **Platform logo** | Frame the logo near the platform's front rim. |
-| **Shading** | Select **Lit**, **Base color**, or **Normals**. |
+| **Shading** | Select **Lit** (diffuse reference), **PBR**, **Base color**, or **Normals**. |
+| **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
 | **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
 | **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
 | **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
@@ -108,7 +113,27 @@ HDR rendering and bloom are planned for preserving excess brightness and adding
 a halo.
 **Base color** displays the material color or texture without lighting.
 **Normals** displays world-space surface normals, mapping XYZ components from
-[-1, 1] into RGB [0, 1]. The emission toggle affects only **Lit** mode.
+[-1, 1] into RGB [0, 1]. The emission toggle affects only **Lit** and **PBR**
+modes.
+
+### PBR shading and the material-textures toggle
+
+**PBR** replaces the simple diffuse response with a metallic/roughness
+Cook-Torrance BRDF: GGX specular highlights, Smith visibility, Schlick fresnel,
+and Lambert diffuse scaled down by metallic. Metals use their base color as the
+specular F0, while nonmetals reflect about 4%. Roughness is clamped to a small
+minimum (0.045) so zero-roughness materials stay numerically well-defined. The
+same function evaluates the sun and the spotlight; ambient fill and emission
+accumulate as in **Lit** mode.
+
+The **Material textures** checkbox chooses the source of the shading inputs
+independently of the shading formula. When on, each material samples its
+available base-color and roughness images; when off, it uses the constants
+loaded from the MTL: gold keeps its authored gold color, metallic 1, and
+roughness 0.21, while textured marble falls back to its imported gray base
+color (0.6, 0.6, 0.6) and roughness 0. Sampled roughness only affects **PBR**;
+the diffuse **Lit** reference has no roughness-dependent response. Normal maps
+remain a separate future stage with their own toggle.
 
 ### Lighting and its marker
 
@@ -151,11 +176,10 @@ To compare the lights, use **Lit**, turn **Emission** off, and set
 and both together. With both lights off, the exhibit surfaces are black;
 the background and enabled debug marker remain visible. Changing the configured
 spotlight position or target updates both the illumination and marker placement.
-
-This is a basic diffuse material preview. Metallic/roughness data and roughness
-textures are available on the GPU; PBR lighting and roughness-texture sampling
-are the next rendering stage, followed by logo normal maps and environment
-reflections.
+This is a direct-lighting material preview: **PBR** and the diffuse **Lit**
+reference use the metallic/roughness data and roughness textures loaded from the
+MTL files. Logo normal maps and environment reflections are the next rendering
+stages.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -170,7 +194,7 @@ The main rendering responsibilities are:
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
 | `src/application.cpp` | Own models, instances, and lights; coordinate the camera and UI; upload shared lighting settings and per-object transforms; draw the light marker. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color, and apply ambient fill, directional/spotlight diffuse shading, and emission in Lit mode. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color/roughness inputs, and apply ambient fill, emission, and the diffuse-reference or PBR light response in Lit/PBR mode. |
 
 The loaded models are stable `Application` members. Scene objects
 reference those models, allowing one loaded model to be drawn at several
