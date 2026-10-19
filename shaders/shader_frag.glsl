@@ -22,6 +22,7 @@ uniform int shadingMode;
 uniform bool enableEmission;
 uniform bool enableMaterialTextures;
 uniform float ambientStrength;
+
 uniform vec3 cameraPosition;
 
 struct DirectionalLight {
@@ -56,7 +57,8 @@ const int SHADING_BASE_COLOR = 2;
 const int SHADING_NORMALS = 3;
 
 const float PI = 3.14159265359;
-// keeps the PBR BRDF numerically well-defined for zero-roughness materials
+
+// for when roughness is 0 so the pbr doesnt break
 const float MIN_ROUGHNESS = 0.045;
 
 // input and output are linear rgb
@@ -119,7 +121,7 @@ vec3 shadePBR(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3
     float nDotH = max(dot(normal, halfVector), 0.0);
     float hDotV = max(dot(halfVector, viewDirection), 0.0);
 
-    // Dielectrics reflect about 4% at all angles; metals use their base color.
+    // reflect 4 percent at all angles for dielectricts, base color for metals
     vec3 f0 = mix(vec3(0.04), baseColor, metallic);
     float alpha = roughness * roughness;
 

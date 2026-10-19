@@ -1991,8 +1991,7 @@ void LoadMtl(std::map<std::string, int> *material_map,
 
       has_d = false;
       has_tr = false;
-      // BUGFIX(vendored): has_kd leaked from earlier materials, skipping the
-      // map_Kd diffuse fallback (0.6) for every later material without Kd.
+      // fixed bug where kd was the same as previous materials and not 0.6 for ones without kd
       has_kd = false;
 
       // set new mtl name
