@@ -12,6 +12,7 @@
 
 namespace {
 
+// if enabled is true, enables the capability in opengl. otherwise disables it
 void restoreEnable(GLenum capability, GLboolean enabled)
 {
     if (enabled)
@@ -20,13 +21,13 @@ void restoreEnable(GLenum capability, GLboolean enabled)
         glDisable(capability);
 }
 
-// Plain saved values; reading and restoring OpenGL state are explicit calls.
+// opengl state that we change when initalising the environment
 struct OpenGLState {
-    GLint framebuffer, program, vao, arrayBuffer, activeTexture;
-    GLint texture2D, textureCube, viewport[4];
+    GLint framebuffer, program, vao, arrayBuffer, activeTexture, texture2D, textureCube, viewport[4];
     GLboolean depthTest, cullFace, blend, scissorTest, framebufferSrgb;
 };
 
+// returns the current state of the opengl values we will want to restore
 OpenGLState readOpenGLState()
 {
     OpenGLState state {};
@@ -42,8 +43,7 @@ OpenGLState readOpenGLState()
     state.scissorTest = glIsEnabled(GL_SCISSOR_TEST);
     state.framebufferSrgb = glIsEnabled(GL_FRAMEBUFFER_SRGB);
 
-    // Only unit 0 is used during conversion. Select it to read its bindings,
-    // then put back the active unit so this function only observes the state.
+    // we use texture 0 for the initialisation so save what it had before
     glActiveTexture(GL_TEXTURE0);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &state.texture2D);
     glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &state.textureCube);
@@ -51,6 +51,7 @@ OpenGLState readOpenGLState()
     return state;
 }
 
+// sets the opengl values to the ones in state
 void restoreOpenGLState(const OpenGLState& state)
 {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(state.framebuffer));
@@ -69,9 +70,8 @@ void restoreOpenGLState(const OpenGLState& state)
     restoreEnable(GL_FRAMEBUFFER_SRGB, state.framebufferSrgb);
 }
 
-// Only positions are needed: from the cube's center each position also gives
-// the world-space direction used to sample the panorama or the cubemap.
-constexpr float cubeVertices[] = {
+// the coordinates for the vertices of a cube with side length 2 centered at the origin (we use for the cubemap)
+const float cubeVertices[] = {
     -1, -1, -1,  1, -1, -1,  1,  1, -1,
      1,  1, -1, -1,  1, -1, -1, -1, -1,
     -1, -1,  1,  1, -1,  1,  1,  1,  1,
@@ -86,12 +86,15 @@ constexpr float cubeVertices[] = {
      1,  1,  1, -1,  1,  1, -1,  1, -1
 };
 
-} // namespace
+}
 
 void Environment::initialize(const std::filesystem::path& panoramaPath)
 {
+    // load the sky
     const HDRImage panorama(panoramaPath);
 
+    // this is the shader for generating the faces of the cubemap. we put a camera at the center of the cubemap and for
+    // each of the 6 faces, we point it at it and use this to generate the texture.
     ShaderBuilder conversionBuilder;
     conversionBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/skybox_vert.glsl");
     conversionBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/environment_convert_frag.glsl");

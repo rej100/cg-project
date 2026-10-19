@@ -48,14 +48,14 @@ HDRImage::HDRImage(const std::filesystem::path& filePath)
 {
     const std::string filePathString = filePath.string();
     if (!stbi_is_hdr(filePathString.c_str()))
-        throw std::runtime_error("Not a readable HDR image: " + filePathString);
+        throw std::runtime_error("not hdr image: " + filePathString);
 
     int sourceChannels = 0;
     std::unique_ptr<float, decltype(&stbi_image_free)> stbPixels(
         stbi_loadf(filePathString.c_str(), &width, &height, &sourceChannels, channels),
         &stbi_image_free);
     if (!stbPixels)
-        throw std::runtime_error("Failed to load HDR image: " + filePathString);
+        throw std::runtime_error("failed hdr load: " + filePathString);
 
     const size_t pixelValues = static_cast<size_t>(width) * static_cast<size_t>(height) * channels;
     pixels.assign(stbPixels.get(), stbPixels.get() + pixelValues);
