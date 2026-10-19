@@ -1,5 +1,6 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
+#include "environment.h"
 #include "light.h"
 #include "model.h"
 #include <framework/disable_all_warnings.h>
@@ -27,7 +28,11 @@ public:
         , m_camera(&m_window, glm::radians(CAMERA_FOV_DEGREES))
     {
         m_window.maximize();
+        // Filter across cubemap face boundaries instead of leaving visible seams.
+        glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
         setOverviewCamera();
+
+        m_environment.initialize(RESOURCE_ROOT "assets/environment/qwantani_noon_puresky_2k.hdr");
 
         m_platformModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/platform.obj");
         m_reactorModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/reactor.obj");
@@ -178,6 +183,7 @@ private:
         ImGui::SameLine(ImGui::GetFontSize() * 9.0f);
         ImGui::Checkbox("Material textures", &m_enableMaterialTextures);
         ImGui::Checkbox("Normal mapping", &m_enableNormalMapping);
+        ImGui::Checkbox("Environment reflections (PBR)", &m_enableEnvironmentReflections);
 
         if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
             drawLightingUi();
@@ -222,10 +228,12 @@ private:
         // ImGui supplies srgb so we make shader supply srgb as well
         // and disable automatic encoding for the framebuffer
         glDisable(GL_FRAMEBUFFER_SRGB);
-        // srgb for the background
+        // The skybox paints over this color; depth still needs clearing each frame.
         glClearColor(0.84f, 0.87f, 0.90f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
+
+        m_environment.drawBackground(m_viewMatrix, m_projectionMatrix);
 
         const glm::mat4 viewProjectionMatrix = m_projectionMatrix * m_viewMatrix;
 
@@ -236,6 +244,10 @@ private:
         glUniform1i(m_defaultShader.getUniformLocation("enableEmission"), m_enableEmission);
         glUniform1i(m_defaultShader.getUniformLocation("enableMaterialTextures"), m_enableMaterialTextures);
         glUniform1i(m_defaultShader.getUniformLocation("enableNormalMapping"), m_enableNormalMapping);
+        glUniform1i(m_defaultShader.getUniformLocation("enableEnvironmentReflections"), m_enableEnvironmentReflections);
+        glUniform1i(m_defaultShader.getUniformLocation("environmentMap"), 3);
+        glUniform1f(m_defaultShader.getUniformLocation("environmentMaxLOD"), m_environment.maxReflectionLod());
+        m_environment.bind(GL_TEXTURE3);
         glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
 
         for (const SceneObject& object : m_sceneObjects)
@@ -293,6 +305,7 @@ private:
 
     Window m_window;
     Trackball m_camera;
+    Environment m_environment;
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -320,6 +333,7 @@ private:
     bool m_enableEmission { true };
     bool m_enableMaterialTextures { true };
     bool m_enableNormalMapping { true };
+    bool m_enableEnvironmentReflections { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };

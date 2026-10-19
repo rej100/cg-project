@@ -74,8 +74,8 @@ The [asset inventory](assets/README.md#drone) lists its files, textures, and off
 The OBJ/MTL files supply material colors and base-color textures, including the
 marble, gold-colored trim, ceramic housing, and TU Delft logos. Metallic (`Pm`)
 and roughness (`Pr`) constants are copied into each GPU material, and roughness
-images (`map_Pr`) are loaded and uploaded as linear/non-color textures for the
-upcoming PBR shading stage. Missing `Pm` and `Pr` use tinyobjloader's existing
+images (`map_Pr`) are loaded and uploaded as linear/non-color textures for
+PBR shading. Missing `Pm` and `Pr` use tinyobjloader's existing
 default of 0. Materials that reference a base-color texture without an explicit
 `Kd` (the marbles and reactor panel; Blender omits constants for connected
 texture inputs) import tinyobjloader's documented gray fallback (0.6, 0.6,
@@ -99,7 +99,8 @@ constants, and any nonzero emission values.
 | **Shading** | Select **Lit** (diffuse reference), **PBR**, **Base color**, or **Normals**. |
 | **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
 | **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
-| **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
+| **Environment reflections (PBR)** | Toggle the environment's specular reflection in **PBR** mode; the sky background stays visible. |
+| **Emission** | Toggle the core's self-luminous contribution in **Lit** and **PBR** modes. |
 | **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
 | **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
 | **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
@@ -125,7 +126,8 @@ and Lambert diffuse scaled down by metallic. Metals use their base color as the
 specular F0, while nonmetals reflect about 4%. Roughness is clamped to a small
 minimum (0.045) so zero-roughness materials stay numerically well-defined. The
 same function evaluates the sun and the spotlight; ambient fill and emission
-accumulate as in **Lit** mode.
+accumulate as in **Lit** mode. Environment reflections add a view-dependent
+specular contribution when enabled.
 
 The **Material textures** checkbox chooses the source of the shading inputs
 independently of the shading formula. When on, each material samples its
@@ -160,6 +162,53 @@ normal map, and fragments whose UVs carry no usable tangent, fall back to the
 mesh normal. The **Normal mapping** checkbox is independent of **Material
 textures**: artwork visibility and relief shading can be toggled separately,
 and the **Normals** diagnostic displays whichever normal is in use.
+
+### Environment mapping
+
+The application loads Poly Haven's **Qwantani Noon (Pure Sky)**, a 2048 × 1024
+CC0 HDR panorama. Its float RGB values represent the distant surroundings in
+every direction. At startup, `Environment` renders the panorama into six
+1024 × 1024 cubemap faces. Longitude/latitude lookups are only needed during
+this conversion; the sky and reflections then sample the cubemap by a
+world-space direction. The cubemap uses `GL_RGB32F` to preserve the source's
+bright sun, whose values exceed the half-float range. The original download,
+authors, and license are recorded in the [asset inventory](assets/README.md#environment).
+
+Application setup calls `Environment::initialize()` once, after creating the
+OpenGL context. Initialization explicitly reads and restores the OpenGL settings
+used during conversion. The cubemap and cube geometry remain allocated until
+context destruction at shutdown; initialization errors reach `main()`, which
+prints the error and exits.
+
+For the background, a small code-generated cube follows the camera's position:
+its transform uses view rotation but omits translation. It is drawn first with
+depth writes disabled, so scene objects can cover it at any distance. The sky
+therefore turns with the view but has no positional parallax, representing an
+infinitely distant environment.
+
+In **PBR**, the same environment supplies reflections:
+
+```glsl
+vec3 reflectedDirection = reflect(-viewDirection, shadingNormal);
+vec3 reflectedColor = textureLod(environmentMap, reflectedDirection,
+    clamp(roughness, 0.0, 1.0) * environmentMaxLOD).rgb;
+```
+
+Schlick Fresnel weights the result, with base-color F0 for metals and 0.04 for
+nonmetals. Normal-mapped details affect the reflected direction too. Ordinary
+cubemap mipmaps provide an inexpensive roughness-dependent blur approximation;
+they are not a GGX-prefiltered specular IBL solution. The constant ambient fill
+continues to supply diffuse fill. Reflections contain this distant panorama,
+not the reactor or drone; the cubemap is bound once per frame on texture unit 3
+(base color, roughness, and normal maps occupy units 0, 1, and 2).
+
+To inspect the effect, choose **PBR**, use the **Reactor** camera, orbit around
+the curved gold rings/collar, and toggle **Environment reflections (PBR)**.
+The reflected sky shifts across the gold while the background and direct
+lighting stay visible. **Lit**, **Base color**, and **Normals** do not add
+environment reflections. Both the sky and scene shaders convert linear RGB to
+sRGB for the current SDR output, so values above 1 still clip on display; the
+floating-point environment data is retained for the planned HDR/bloom pipeline.
 
 ### Lighting and its marker
 
@@ -202,10 +251,9 @@ To compare the lights, use **Lit**, turn **Emission** off, and set
 and both together. With both lights off, the exhibit surfaces are black;
 the background and enabled debug marker remain visible. Changing the configured
 spotlight position or target updates both the illumination and marker placement.
-This is a direct-lighting material preview: **PBR** and the diffuse **Lit**
-reference use the metallic/roughness data and roughness textures loaded from the
-MTL files, and normal mapping applies the baked logo/panel relief. Environment
-reflections are the next rendering stage.
+**PBR** uses the metallic/roughness data and roughness textures loaded from the
+MTL files, while **Lit** provides the diffuse reference. Normal mapping applies
+the baked logo/panel relief, and **PBR** also samples the environment for reflections.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -218,9 +266,12 @@ The main rendering responsibilities are:
 | `src/model.h` | Define `Model`, which owns GPU meshes, and `SceneObject`, which references a model and supplies its transform. |
 | `src/light.h` | Define directional/spotlight settings and derive the spotlight's aim direction. |
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
-| `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
-| `src/application.cpp` | Own models, instances, and lights; coordinate the camera and UI; upload shared lighting settings and per-object transforms; draw the light marker. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose the base color/roughness inputs, resolve the shading normal from the normal map, and apply ambient fill, emission, and the diffuse-reference or PBR light response in Lit/PBR mode. |
+| `framework/src/image.cpp` | Load 8-bit material images and linear float HDR panoramas. |
+| `src/environment.cpp` | Convert the panorama into a cubemap, generate reflection mipmaps, own the cube resources, and draw the sky background. |
+| `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color, roughness, and normal textures when drawing. |
+| `src/application.cpp` | Own models, instances, lights, and environment; coordinate camera/UI, draw the sky first, upload shared settings and per-object transforms, and draw the light marker. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply ambient fill, emission, direct lights, and PBR environment reflections. |
+| `shaders/skybox_vert.glsl`, `environment_convert_frag.glsl`, `skybox_frag.glsl` | Share the direction-supplying cube vertex shader between panorama conversion and sky rendering. |
 
 The loaded models are stable `Application` members. Scene objects
 reference those models, allowing one loaded model to be drawn at several
@@ -402,7 +453,7 @@ emissive surfaces can use constant material parameters instead of extra images.
 | `assets/textures/drone_roughness.png` | Surface-finish variation across the shell and trim regions. |
 | `assets/textures/drone_normal.png` | Panel seams and small manufactured details. |
 | `assets/textures/particle_soft.png` | Soft particle sprite with an alpha falloff; tinted cyan during rendering. |
-| `assets/environment/pavilion_daylight.hdr` | Bright panoramic environment, converted to a cubemap for the background and reflections. |
+| `assets/environment/qwantani_noon_puresky_2k.hdr` | Poly Haven daylight panorama (CC0), converted to a cubemap for the background and reflections. |
 | `assets/README.md` | Asset inventory, authorship, source links, licenses, and modifications, including our own generated assets. |
 
 Base-color textures use sRGB color interpretation; roughness and normal maps are

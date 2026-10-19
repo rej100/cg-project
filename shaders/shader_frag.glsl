@@ -18,6 +18,7 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
 uniform sampler2D baseColorMap;
 uniform sampler2D roughnessMap;
 uniform sampler2D normalMap;
+uniform samplerCube environmentMap;
 uniform bool hasBaseColorTexture;
 uniform bool hasRoughnessTexture;
 uniform bool hasNormalTexture;
@@ -25,6 +26,8 @@ uniform int shadingMode;
 uniform bool enableEmission;
 uniform bool enableMaterialTextures;
 uniform bool enableNormalMapping;
+uniform bool enableEnvironmentReflections;
+uniform float environmentMaxLOD;
 uniform float ambientStrength;
 
 uniform vec3 cameraPosition;
@@ -166,6 +169,24 @@ vec3 shadePbrSpotlight(vec3 baseColor, float metallic, float roughness, vec3 nor
     return shadePBR(baseColor, metallic, roughness, normal, viewDirection, directionToLight, spotlight.color * spotlight.intensity);
 }
 
+vec3 shadeEnvironment(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection)
+{
+    if (!enableEnvironmentReflections)
+        return vec3(0.0);
+
+    // Trace the view ray backwards through a mirror bounce. Only its world
+    // direction matters because this environment is assumed infinitely distant.
+    vec3 reflectedDirection = reflect(-viewDirection, normal);
+    float lod = clamp(roughness, 0.0, 1.0) * environmentMaxLOD;
+    vec3 reflectedColor = textureLod(environmentMap, reflectedDirection, lod).rgb;
+
+    // Metals tint the reflection with their base color; dielectrics start at 4%.
+    // This is approximate environment specular, not full diffuse/specular IBL.
+    vec3 f0 = mix(vec3(0.04), baseColor, metallic);
+    float nDotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
+    return pbrFresnel(nDotV, f0) * reflectedColor;
+}
+
 // convert linear rgb to srgb for display (copied)
 vec3 linearToSrgb(vec3 color)
 {
@@ -243,6 +264,7 @@ void main()
         color = baseColor * ambientStrength;
         color += shadePbrSun(baseColor, metallic, surfaceRoughness, normal, viewDirection);
         color += shadePbrSpotlight(baseColor, metallic, surfaceRoughness, normal, viewDirection);
+        color += shadeEnvironment(baseColor, metallic, surfaceRoughness, normal, viewDirection);
         if (enableEmission)
             color += emission;
     }

@@ -1,5 +1,24 @@
 # Scene assets
 
+## Environment
+
+| File | Purpose |
+| --- | --- |
+| `environment/qwantani_noon_puresky_2k.hdr` | 2048 × 1024 linear HDR equirectangular panorama; source for the sky background and PBR environment reflections. |
+
+**Qwantani Noon (Pure Sky)** is from [Poly Haven](https://polyhaven.com/a/qwantani_noon_puresky),
+photographed by **Greg Zaal** and processed by **Jarod Guest**. It is distributed
+under [CC0](https://polyhaven.com/license). The downloaded 2k Radiance HDR file is
+unmodified (MD5 `a316dccf04a17de5581240ed172790f0`, 4,184,949 bytes).
+
+The application converts the panorama into a floating-point cubemap at startup,
+then generates mipmaps for an approximate roughness-dependent reflection blur.
+It uses 32-bit float RGB to preserve sun values beyond the half-float range.
+The cubemap is generated data, not another committed asset. Reflections use only
+this distant environment; scene objects are not captured into it. To try a
+cloudier alternative, keep Poly Haven's `sunflowers_puresky` in mind; it is not
+bundled with the project.
+
 ## Platform
 
 ![Platform preview](previews/platform.png)
@@ -10,8 +29,8 @@ TU Delft logo near the front edge provides an orientation marker and a clearly
 visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
 alongside the reactor, using directional and spotlight lighting with adjustable
-ambient fill. The previews below are Blender renders of the full authored
-materials; application-side environment reflections are planned next.
+ambient fill and PBR environment reflections. The previews below are Blender
+renders of the full authored materials.
 
 ### Files
 

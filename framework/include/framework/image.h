@@ -52,3 +52,21 @@ public:
 private:
     std::vector<uint8_t> pixels;
 };
+
+// HDR pixels are linear RGB floats, so brightness above 1 is kept instead of
+// being clipped to the 0-255 range used by Image. Rows are stored top-to-bottom.
+struct HDRImage {
+    explicit HDRImage(const std::filesystem::path& filePath);
+
+    int width { 0 };
+    int height { 0 };
+    static constexpr int channels = 3;
+
+    const float* get_data() const
+    {
+        return pixels.data();
+    }
+
+private:
+    std::vector<float> pixels;
+};
