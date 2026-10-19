@@ -17,6 +17,8 @@ struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 texCoord; // Texture coordinate
+	// xyz: object-space tangent direction (along increasing normal map texture U), w: bitangent orientation sign (1 or -1).
+	glm::vec4 tangentAndBitangentSign { 0.0f, 0.0f, 0.0f, 1.0f };
 
 	[[nodiscard]] constexpr bool operator==(const Vertex&) const noexcept = default;
 };
@@ -38,6 +40,9 @@ struct Material {
 	// }
 	std::shared_ptr<Image> kdTexture;
 	std::shared_ptr<Image> roughnessTexture; // optional texture that replaces roughness.
+	// normal map
+	std::shared_ptr<Image> normalTexture;
+	float normalMapStrength{ 1.0f };
 };
 
 struct Mesh {

@@ -9,6 +9,7 @@ DISABLE_WARNINGS_PUSH()
 DISABLE_WARNINGS_POP()
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <exception>
 #include <iostream>
 #include <numeric>
@@ -19,6 +20,7 @@ DISABLE_WARNINGS_POP()
 #include <map>
 
 static void centerAndScaleToUnitMesh(std::span<Mesh> meshes);
+static void generateTangents(Mesh& mesh);
 
 static glm::vec3 construct_vec3(const float* pFloats)
 {
@@ -140,6 +142,12 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
                 if (!objMaterial.roughness_texname.empty()) {
                     mesh.material.roughnessTexture = std::make_shared<Image>(baseDir / objMaterial.roughness_texname);
                 }
+                // Blender exports tangent-space normal maps as map_Bump with a -bm strength.
+                const std::string& normalMapName = !objMaterial.normal_texname.empty() ? objMaterial.normal_texname : objMaterial.bump_texname;
+                if (!normalMapName.empty()) {
+                    mesh.material.normalTexture = std::make_shared<Image>(baseDir / normalMapName);
+                    mesh.material.normalMapStrength = static_cast<float>(objMaterial.bump_texopt.bump_multiplier);
+                }
                 mesh.material.emission = construct_vec3(objMaterial.emission);
             }
 
@@ -149,10 +157,102 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
         }
     }
 
+    for (Mesh& mesh : out)
+        generateTangents(mesh);
+
     if (settings.normalizeVertexPositions)
         centerAndScaleToUnitMesh(out);
 
     return out;
+}
+
+// calculate the object space tangent and bitangent sign for every vertex
+//
+// for each triangle calculate the tangent and bitangent then add that tangent to
+// the sum for each of the 3 vertices of the triangle. also for each triangle, and 1 to the sign vote sum of
+// each of its vertices if the sign of the bitangent of the triangle is the same when reconstructed from the
+// tangent and the normal
+
+// for each vertex make the combined tangent perpendicualr its vertex normal and then normalize it.
+// also for each vertex the btangent sign is positive if the sum is positive and negative if the sum is negative
+//
+// Store the tangent in xyz and the bitangent sign in w of
+// tangentAndBitangentSign.
+static void generateTangents(Mesh& mesh)
+{
+    const size_t vertexCount = mesh.vertices.size();
+    std::vector<glm::vec3> tangentSumsPerVertex(vertexCount, glm::vec3(0.0f));
+    std::vector<float> bitangentSignVotes(vertexCount, 0.0f);
+
+    for (const glm::uvec3& triangle : mesh.triangles) {
+        const Vertex& v0 = mesh.vertices[triangle[0]];
+        const Vertex& v1 = mesh.vertices[triangle[1]];
+        const Vertex& v2 = mesh.vertices[triangle[2]];
+
+        const glm::vec3 edge1 = v1.position - v0.position;
+        const glm::vec3 edge2 = v2.position - v0.position;
+        const glm::vec2 duv1 = v1.texCoord - v0.texCoord;
+        const glm::vec2 duv2 = v2.texCoord - v0.texCoord;
+
+        // [edge1 edge2] = [T B] * [[duv1.x duv1.y] [duv2.x duv2.y]] solve for T and B
+        const float determinant = duv1.x * duv2.y - duv1.y * duv2.x;
+        if (std::abs(determinant) < 0.000001f)
+            continue;
+
+        const float inverseDeterminant = 1.0f / determinant;
+        const glm::vec3 triangleTangent = inverseDeterminant * (duv2.y * edge1 - duv1.y * edge2);
+        const glm::vec3 triangleBitangent = inverseDeterminant * (-duv2.x * edge1 + duv1.x * edge2);
+
+        for (unsigned j = 0; j < 3; ++j) {
+            const unsigned vertexIndex = triangle[j];
+            tangentSumsPerVertex[vertexIndex] += triangleTangent;
+
+            const glm::vec3 vertexNormal = mesh.vertices[vertexIndex].normal;
+            const glm::vec3 bitangentFromCross = glm::cross(vertexNormal, triangleTangent);
+            const float bitangentAlignment = glm::dot(bitangentFromCross, triangleBitangent);
+
+            if (bitangentAlignment >= 0.0f) {
+                bitangentSignVotes[vertexIndex] += 1.0f;
+            } else {
+                bitangentSignVotes[vertexIndex] -= 1.0f;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < vertexCount; ++i) {
+        const glm::vec3 normal = glm::normalize(mesh.vertices[i].normal);
+        glm::vec3 tangent = tangentSumsPerVertex[i];
+
+        const float tangentLengthSquared = glm::dot(tangent, tangent);
+
+        // if we get 0 vector we there will be a problem if we try to normalize so we
+        // need to choose a different one (that is perpendicular to the vertex normal)
+        if (tangentLengthSquared < 0.000001f) {
+            // use the x axis 
+            glm::vec3 referenceAxis(1.0f, 0.0f, 0.0f);
+
+            // if the normal is close to paralle to the x axis choose the y axis instead
+            if (std::abs(normal.x) > 0.9f) {
+                referenceAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+            }
+
+            // make the vector we chose perpendicular to the vertex normal
+            tangent = glm::cross(normal, referenceAxis);
+        }
+
+        // make the tangent we got from the sum of the triangle tangents perpendicular to the normal of the vertex
+        const float componentAlongNormal = glm::dot(normal, tangent);
+        tangent -= normal * componentAlongNormal;
+
+        // Store a unit direction.
+        tangent = glm::normalize(tangent);
+
+        float bitangentSign = 1.0f;
+        if (bitangentSignVotes[i] < 0.0f) {
+            bitangentSign = -1.0f;
+        }
+        mesh.vertices[i].tangentAndBitangentSign = glm::vec4(tangent, bitangentSign);
+    }
 }
 
 static void centerAndScaleToUnitMesh(std::span<Mesh> meshes)

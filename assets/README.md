@@ -11,7 +11,7 @@ visible normal-mapping example. The shared origin is at ground level in the
 center. The application loads its three material groups and base-color texture
 alongside the reactor, using directional and spotlight lighting with adjustable
 ambient fill. The previews below are Blender renders of the full authored
-materials; application-side normal mapping and reflections are planned next.
+materials; application-side environment reflections are planned next.
 
 ### Files
 
@@ -32,8 +32,9 @@ materials; application-side normal mapping and reflections are planned next.
 ### Materials
 
 The application retains the OBJ's material names and reads their colors,
-metallic/roughness constants, and base-color/roughness image references from the
-MTL. Roughness images are uploaded as linear/non-color textures. Missing `Pm`
+metallic/roughness constants, and base-color/roughness/normal image references
+from the MTL. Roughness and normal images are uploaded as linear/non-color
+textures. Missing `Pm`
 and `Pr` use tinyobjloader's existing default of 0, including the omitted `Pr`
 for textured marble; `platform_marble` has no `Kd` either (Blender omits
 constants for connected texture inputs) and imports the gray (0.6, 0.6, 0.6)
@@ -57,7 +58,9 @@ Blender exports the RGB normal map reference as
 `map_Bump -bm 1.250000 ../textures/platform_normal.png` in the MTL. For this asset,
 interpret that image as a **tangent-space normal map**, not a grayscale height
 map. Its channel convention is +X, +Y, +Z (OpenGL-style), and its normal-map
-strength is 1.25. Use a tangent basis matching the Blender bake.
+strength is 1.25. The application generates the tangent basis from the mesh
+positions/UVs at load time and reads the strength from the exported `-bm`
+value.
 
 ### Logo placement and normal-map demonstration
 
@@ -137,8 +140,8 @@ The application loads the reactor as a separate model instance, translated by
 `(0, 0.38, 0)` to sit on the platform. It displays the base colors/textures and
 core emission, with camera presets for the complete assembly, reactor, panel,
 and platform logo. Blender previews include the full PBR materials, emission,
-and a restrained compositor glow; application-side normal mapping and bloom are
-planned rendering stages.
+and a restrained compositor glow; application-side bloom is a planned rendering
+stage.
 
 ### Files
 
@@ -180,7 +183,8 @@ As with the platform, the panel's MTL reference is
 `map_Bump -bm 1.500000 ../textures/reactor_panel_normal.png`. Interpret this as a
 **tangent-space normal map**, with OpenGL-style +X, +Y, +Z channels, rather than
 a grayscale height image. The panel front uses U along Blender +X and V along
-Blender +Z.
+Blender +Z. The application loads it with the strength 1.5 read from `-bm` and
+generates the tangents from the mesh positions/UVs.
 
 | Normal mapping on | Normal mapping off |
 | --- | --- |

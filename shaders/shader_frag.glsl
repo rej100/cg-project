@@ -9,6 +9,7 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
     float metallic;
     float roughness;
     vec3 emission; // linear rgb
+    float normalMapStrength;
 };
 
 // in general everything is linear rgb except for the fragColor output
@@ -16,11 +17,14 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
 // can be stored as srgb on gpu but texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
 uniform sampler2D roughnessMap;
+uniform sampler2D normalMap;
 uniform bool hasBaseColorTexture;
 uniform bool hasRoughnessTexture;
+uniform bool hasNormalTexture;
 uniform int shadingMode;
 uniform bool enableEmission;
 uniform bool enableMaterialTextures;
+uniform bool enableNormalMapping;
 uniform float ambientStrength;
 
 uniform vec3 cameraPosition;
@@ -47,6 +51,7 @@ uniform SpotLight spotlight;
 in vec3 fragPosition; // World-space position.
 in vec3 fragNormal;
 in vec2 fragTexCoord;
+in vec4 fragTangentAndBitangentSign; // xyz: interpolated tangent; w: bitangent sign.
 
 layout(location = 0) out vec4 fragColor;
 
@@ -179,9 +184,37 @@ vec3 linearToSrgb(vec3 color)
     return result;
 }
 
+// get the normal from the normal map is available
+vec3 resolveShadingNormal(vec3 meshNormal)
+{
+    if (!enableNormalMapping || !hasNormalTexture)
+        return meshNormal;
+
+
+    vec3 tangent = fragTangentAndBitangentSign.xyz;
+
+    // make sure the tangent is perpendicular to the frag normal
+    tangent -= meshNormal * dot(meshNormal, tangent);
+
+    // if bad tangent just use the normal
+    if (dot(tangent, tangent) < 0.000001)
+        return meshNormal;
+
+    tangent = normalize(tangent);
+    vec3 bitangent = fragTangentAndBitangentSign.w * cross(meshNormal, tangent);
+    mat3 tangentToWorld = mat3(tangent, bitangent, meshNormal);
+
+    // normal map values are 0 to 1 but we want -1 to 1
+    vec3 mappedNormal = texture(normalMap, fragTexCoord).rgb * 2.0 - 1.0;
+
+    // scale by the normal map strenght
+    mappedNormal.xy *= normalMapStrength;
+    return normalize(tangentToWorld * mappedNormal);
+}
+
 void main()
 {
-    vec3 normal = normalize(fragNormal);
+    vec3 normal = resolveShadingNormal(normalize(fragNormal));
     if (shadingMode == SHADING_NORMALS) {
         // change normal xyz from [-1, 1] to [0, 1] for RGB
         // Diagnostic display RGB; bypass the linear-light material/lighting path.

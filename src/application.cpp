@@ -177,6 +177,7 @@ private:
         ImGui::Checkbox("Emission", &m_enableEmission);
         ImGui::SameLine(ImGui::GetFontSize() * 9.0f);
         ImGui::Checkbox("Material textures", &m_enableMaterialTextures);
+        ImGui::Checkbox("Normal mapping", &m_enableNormalMapping);
 
         if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
             drawLightingUi();
@@ -234,6 +235,7 @@ private:
         glUniform1i(m_defaultShader.getUniformLocation("shadingMode"), static_cast<int>(m_shadingMode));
         glUniform1i(m_defaultShader.getUniformLocation("enableEmission"), m_enableEmission);
         glUniform1i(m_defaultShader.getUniformLocation("enableMaterialTextures"), m_enableMaterialTextures);
+        glUniform1i(m_defaultShader.getUniformLocation("enableNormalMapping"), m_enableNormalMapping);
         glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
 
         for (const SceneObject& object : m_sceneObjects)
@@ -317,6 +319,7 @@ private:
     ShadingMode m_shadingMode { ShadingMode::Lit };
     bool m_enableEmission { true };
     bool m_enableMaterialTextures { true };
+    bool m_enableNormalMapping { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };

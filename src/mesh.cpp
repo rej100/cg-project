@@ -15,7 +15,8 @@ GPUMaterial::GPUMaterial(const Material& material) :
     transparency(material.transparency),
     metallic(material.metallic),
     roughness(material.roughness),
-    emission(material.emission)
+    emission(material.emission),
+    normalMapStrength(material.normalMapStrength)
 {}
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
@@ -27,6 +28,9 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
 
     if (cpuMesh.material.roughnessTexture)
         m_roughnessTexture.emplace(*cpuMesh.material.roughnessTexture, TextureColorSpace::Linear);
+
+    if (cpuMesh.material.normalTexture)
+        m_normalTexture.emplace(*cpuMesh.material.normalTexture, TextureColorSpace::Linear);
 
     // Create uniform buffer to store mesh material (https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL)
     GPUMaterial gpuMaterial(cpuMesh.material);
@@ -48,18 +52,21 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(cpuMesh.triangles.size() * sizeof(decltype(cpuMesh.triangles)::value_type)), cpuMesh.triangles.data(), GL_STATIC_DRAW);
 
-    // Tell OpenGL that we will be using vertex attributes 0, 1 and 2.
+    // Tell OpenGL that we will be using vertex attributes 0, 1, 2 and 3.
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
     // We tell OpenGL what each vertex looks like and how they are mapped to the shader (location = ...).
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoord));
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tangentAndBitangentSign));
     // Reuse all attributes for each instance
     glVertexAttribDivisor(0, 0);
     glVertexAttribDivisor(1, 0);
     glVertexAttribDivisor(2, 0);
+    glVertexAttribDivisor(3, 0);
 
     // Each triangle has 3 vertices.
     m_numIndices = static_cast<GLsizei>(3 * cpuMesh.triangles.size());
@@ -103,7 +110,8 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
                   << (gpuMeshes.back().hasBaseColorTexture() ? "base-color texture" : "constant base color")
                   << ", metallic " << mesh.material.metallic
                   << ", roughness " << mesh.material.roughness
-                  << (gpuMeshes.back().hasRoughnessTexture() ? " + roughness texture" : " (constant)");
+                  << (gpuMeshes.back().hasRoughnessTexture() ? " + roughness texture" : " (constant)")
+                  << (gpuMeshes.back().hasNormalTexture() ? ", normal map strength " + std::to_string(mesh.material.normalMapStrength) : "");
         if (mesh.material.emission != glm::vec3(0.0f)) {
             const glm::vec3& emission = mesh.material.emission;
             std::cout << ", emission (" << emission.x << ", " << emission.y << ", " << emission.z << ')';
@@ -123,6 +131,11 @@ bool GPUMesh::hasBaseColorTexture() const
 bool GPUMesh::hasRoughnessTexture() const
 {
     return m_roughnessTexture.has_value();
+}
+
+bool GPUMesh::hasNormalTexture() const
+{
+    return m_normalTexture.has_value();
 }
 
 const std::string& GPUMesh::materialName() const
@@ -145,6 +158,11 @@ void GPUMesh::draw(const Shader& drawingShader) const
     glUniform1i(drawingShader.getUniformLocation("roughnessMap"), 1);
     if (m_roughnessTexture)
         m_roughnessTexture->bind(GL_TEXTURE1);
+
+    glUniform1i(drawingShader.getUniformLocation("hasNormalTexture"), hasNormalTexture());
+    glUniform1i(drawingShader.getUniformLocation("normalMap"), 2);
+    if (m_normalTexture)
+        m_normalTexture->bind(GL_TEXTURE2);
     
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);
@@ -158,6 +176,7 @@ void GPUMesh::moveInto(GPUMesh&& other) noexcept
     m_materialName = std::move(other.m_materialName);
     m_baseColorTexture = std::move(other.m_baseColorTexture);
     m_roughnessTexture = std::move(other.m_roughnessTexture);
+    m_normalTexture = std::move(other.m_normalTexture);
     m_ibo = other.m_ibo;
     m_vbo = other.m_vbo;
     m_vao = other.m_vao;
@@ -166,6 +185,7 @@ void GPUMesh::moveInto(GPUMesh&& other) noexcept
     other.m_numIndices = 0;
     other.m_baseColorTexture.reset();
     other.m_roughnessTexture.reset();
+    other.m_normalTexture.reset();
     other.m_ibo = INVALID;
     other.m_vbo = INVALID;
     other.m_vao = INVALID;
@@ -184,6 +204,7 @@ void GPUMesh::freeGpuMemory()
         glDeleteBuffers(1, &m_uboMaterial);
     m_baseColorTexture.reset();
     m_roughnessTexture.reset();
+    m_normalTexture.reset();
     m_vao = m_vbo = m_ibo = m_uboMaterial = INVALID;
     m_numIndices = 0;
 }

@@ -29,6 +29,7 @@ struct GPUMaterial {
     float metallic { 0.0f };
     float roughness { 0.0f };
     alignas(16) glm::vec3 emission { 0.0f }; // linear rgb
+    float normalMapStrength { 1.0f };
 };
 
 class GPUMesh {
@@ -49,6 +50,7 @@ public:
 
     bool hasBaseColorTexture() const;
     bool hasRoughnessTexture() const;
+    bool hasNormalTexture() const;
     const std::string& materialName() const;
 
     // Bind this mesh's material and base-color texture, then draw its indexed geometry.
@@ -65,6 +67,7 @@ private:
     std::string m_materialName;
     std::optional<Texture> m_baseColorTexture;
     std::optional<Texture> m_roughnessTexture;
+    std::optional<Texture> m_normalTexture;
     GLuint m_ibo { INVALID };
     GLuint m_vbo { INVALID };
     GLuint m_vao { INVALID };

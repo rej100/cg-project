@@ -98,6 +98,7 @@ constants, and any nonzero emission values.
 | **Platform logo** | Frame the logo near the platform's front rim. |
 | **Shading** | Select **Lit** (diffuse reference), **PBR**, **Base color**, or **Normals**. |
 | **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
+| **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
 | **Emission** | Toggle the core's self-luminous contribution in **Lit** mode. |
 | **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
 | **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
@@ -112,9 +113,9 @@ strength and is used directly. The current SDR output clips channels above 1;
 HDR rendering and bloom are planned for preserving excess brightness and adding
 a halo.
 **Base color** displays the material color or texture without lighting.
-**Normals** displays world-space surface normals, mapping XYZ components from
-[-1, 1] into RGB [0, 1]. The emission toggle affects only **Lit** and **PBR**
-modes.
+**Normals** displays the surface normals actually used for shading, mapping
+XYZ components from [-1, 1] into RGB [0, 1]. The emission toggle affects only
+**Lit** and **PBR** modes.
 
 ### PBR shading and the material-textures toggle
 
@@ -132,8 +133,33 @@ available base-color and roughness images; when off, it uses the constants
 loaded from the MTL: gold keeps its authored gold color, metallic 1, and
 roughness 0.21, while textured marble falls back to its imported gray base
 color (0.6, 0.6, 0.6) and roughness 0. Sampled roughness only affects **PBR**;
-the diffuse **Lit** reference has no roughness-dependent response. Normal maps
-remain a separate future stage with their own toggle.
+the diffuse **Lit** reference has no roughness-dependent response.
+
+### Normal mapping
+
+The normal map replaces the interpolated mesh normal with a more detailed
+surface direction sampled from an image, so the baked relief responds to
+lighting while the mesh silhouette stays unchanged. The mesh's tangent basis is
+generated once at load time from the triangle positions and UVs: one
+`tangentAndBitangentSign` record per vertex (unit tangent direction plus a +1/−1
+bitangent sign, uploaded as vertex attribute 3). For each fragment, the shader
+re-orthogonalizes the interpolated tangent against the interpolated mesh
+normal, reconstructs the bitangent, and builds a temporary tangent-to-world
+basis that converts the sampled direction into world space:
+
+```glsl
+mappedNormal = texture(normalMap, uv).rgb * 2.0 - 1.0; // [0,1] -> [-1,1]
+mappedNormal.xy *= normalMapStrength;                  // authored -bm strength
+shadingNormal = normalize(tangentToWorld * mappedNormal);
+```
+
+The resolved normal feeds the **Lit**, **PBR**, and **Normals** paths. The
+platform logo uses strength 1.25 and the reactor panel 1.5, exported as
+`map_Bump -bm ...` and loaded as linear/non-color data. Materials without a
+normal map, and fragments whose UVs carry no usable tangent, fall back to the
+mesh normal. The **Normal mapping** checkbox is independent of **Material
+textures**: artwork visibility and relief shading can be toggled separately,
+and the **Normals** diagnostic displays whichever normal is in use.
 
 ### Lighting and its marker
 
@@ -178,8 +204,8 @@ the background and enabled debug marker remain visible. Changing the configured
 spotlight position or target updates both the illumination and marker placement.
 This is a direct-lighting material preview: **PBR** and the diffuse **Lit**
 reference use the metallic/roughness data and roughness textures loaded from the
-MTL files. Logo normal maps and environment reflections are the next rendering
-stages.
+MTL files, and normal mapping applies the baked logo/panel relief. Environment
+reflections are the next rendering stage.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -188,13 +214,13 @@ The main rendering responsibilities are:
 
 | Code | Responsibility |
 | --- | --- |
-| `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images. |
+| `framework/src/mesh.cpp` | Read OBJ geometry, material names/properties, and referenced images; generate per-vertex tangents. |
 | `src/model.h` | Define `Model`, which owns GPU meshes, and `SceneObject`, which references a model and supplies its transform. |
 | `src/light.h` | Define directional/spotlight settings and derive the spotlight's aim direction. |
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color texture when drawing. |
 | `src/application.cpp` | Own models, instances, and lights; coordinate the camera and UI; upload shared lighting settings and per-object transforms; draw the light marker. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices, choose the base color/roughness inputs, and apply ambient fill, emission, and the diffuse-reference or PBR light response in Lit/PBR mode. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose the base color/roughness inputs, resolve the shading normal from the normal map, and apply ambient fill, emission, and the diffuse-reference or PBR light response in Lit/PBR mode. |
 
 The loaded models are stable `Application` members. Scene objects
 reference those models, allowing one loaded model to be drawn at several
