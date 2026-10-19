@@ -94,6 +94,8 @@ vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
 }
 
 // cook-torrance with ggx distribution, smith visibility, and schlick fresnel
+// https://learnopengl.com/PBR/Theory
+// https://learnopengl.com/PBR/Lighting
 float pbrDistribution(float nDotH, float alpha)
 {
     float alpha2 = alpha * alpha;
@@ -104,7 +106,7 @@ float pbrDistribution(float nDotH, float alpha)
 float pbrVisibility(float nDotV, float nDotL, float roughness)
 {
     float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-    return (nDotV / (nDotV * k + 1.0)) * (nDotL / (nDotL * k + 1.0));
+    return (nDotV / (nDotV * (1.0 - k) + k)) * (nDotL / (nDotL * (1.0 - k) + k));
 }
 
 vec3 pbrFresnel(float hDotV, vec3 f0)
