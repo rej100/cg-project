@@ -93,7 +93,7 @@ vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
     return shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
 }
 
-// Simplified scalar Cook-Torrance terms: GGX distribution, Smith visibility, Schlick fresnel.
+// cook-torrance with ggx distribution, smith visibility, and schlick fresnel
 float pbrDistribution(float nDotH, float alpha)
 {
     float alpha2 = alpha * alpha;
@@ -112,7 +112,6 @@ vec3 pbrFresnel(float hDotV, vec3 f0)
     return f0 + (1.0 - f0) * pow(1.0 - hDotV, 5.0);
 }
 
-// Metallic/roughness response to one light. All inputs and the result are linear rgb.
 vec3 shadePBR(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection, vec3 directionToLight, vec3 incomingLight)
 {
     vec3 halfVector = normalize(viewDirection + directionToLight);
