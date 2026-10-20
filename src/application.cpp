@@ -228,11 +228,13 @@ private:
         // ImGui supplies srgb so we make shader supply srgb as well
         // and disable automatic encoding for the framebuffer
         glDisable(GL_FRAMEBUFFER_SRGB);
-        // The skybox paints over this color; depth still needs clearing each frame.
+        // the skybox paints over this color 
         glClearColor(0.84f, 0.87f, 0.90f, 1.0f);
+        // depth still needs clearing each frame.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
+        // draw the background sky
         m_environment.drawBackground(m_viewMatrix, m_projectionMatrix);
 
         const glm::mat4 viewProjectionMatrix = m_projectionMatrix * m_viewMatrix;
