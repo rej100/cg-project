@@ -19,6 +19,8 @@ uniform sampler2D baseColorMap;
 uniform sampler2D roughnessMap;
 uniform sampler2D normalMap;
 uniform samplerCube environmentMap;
+uniform sampler2D sunShadowMap;
+uniform mat4 sunViewProjectionMatrix;
 uniform bool hasBaseColorTexture;
 uniform bool hasRoughnessTexture;
 uniform bool hasNormalTexture;
@@ -27,6 +29,7 @@ uniform bool enableEmission;
 uniform bool enableMaterialTextures;
 uniform bool enableNormalMapping;
 uniform bool enableEnvironmentReflections;
+uniform bool enableSunShadows;
 uniform float environmentMaxLOD;
 uniform float ambientStrength;
 
@@ -69,6 +72,10 @@ const float PI = 3.14159265359;
 // for when roughness is 0 so the pbr doesnt break
 const float MIN_ROUGHNESS = 0.045;
 
+// subtract this constant from the fragment's light-space depth when comparing,
+// so small depth/sampling errors do not make the surface shadow itself.
+const float SUN_SHADOW_BIAS = 0.0005;
+
 // input and output are linear rgb
 vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
 {
@@ -76,12 +83,37 @@ vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incom
     return baseColor * incomingLight * diffuse;
 }
 
+// https://learnopengl.com/Advanced-Lighting/Shadow-Mapping
+// basically the same as the exercises
+float sunShadowVisibility()
+{
+    if (!enableSunShadows)
+        return 1.0;
+
+    // project this world-space point into the sun's depth image. OpenGL clip
+    // coordinates become texture coordinates and stored depth in [0, 1].
+    vec4 lightPosition = sunViewProjectionMatrix * vec4(fragPosition, 1.0);
+    vec3 shadowCoordinates = lightPosition.xyz / lightPosition.w;
+    shadowCoordinates = shadowCoordinates * 0.5 + 0.5;
+
+    // the map only describes its finite capture volume. Treat points outside
+    // that volume as visible instead of extending the edge texels' shadows.
+    if (any(lessThan(shadowCoordinates, vec3(0.0)))
+        || any(greaterThan(shadowCoordinates, vec3(1.0))))
+        return 1.0;
+
+    float closestDepth = texture(sunShadowMap, shadowCoordinates.xy).r;
+    if (shadowCoordinates.z - SUN_SHADOW_BIAS > closestDepth)
+        return 0.0;
+    return 1.0;
+}
+
 vec3 shadeSun(vec3 baseColor, vec3 normal)
 {
     if (!sun.enabled)
         return vec3(0.0);
 
-    return shadeDiffuse(baseColor, normal, normalize(sun.directionToLight), sun.color * sun.intensity);
+    return sunShadowVisibility() * shadeDiffuse(baseColor, normal, normalize(sun.directionToLight), sun.color * sun.intensity);
 }
 
 vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
@@ -149,7 +181,7 @@ vec3 shadePbrSun(vec3 baseColor, float metallic, float roughness, vec3 normal, v
     if (!sun.enabled)
         return vec3(0.0);
 
-    return shadePBR(baseColor, metallic, roughness, normal, viewDirection, normalize(sun.directionToLight), sun.color * sun.intensity);
+    return sunShadowVisibility() * shadePBR(baseColor, metallic, roughness, normal, viewDirection, normalize(sun.directionToLight), sun.color * sun.intensity);
 }
 
 vec3 shadePbrSpotlight(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection)

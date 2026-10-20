@@ -164,6 +164,11 @@ void GPUMesh::draw(const Shader& drawingShader) const
     if (m_normalTexture)
         m_normalTexture->bind(GL_TEXTURE2);
     
+    drawGeometry();
+}
+
+void GPUMesh::drawGeometry() const
+{
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);
     glDrawElements(GL_TRIANGLES, m_numIndices, GL_UNSIGNED_INT, nullptr);

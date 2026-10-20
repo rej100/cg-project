@@ -3,6 +3,7 @@
 #include "environment.h"
 #include "light.h"
 #include "model.h"
+#include "shadow_map.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <glad/glad.h>
@@ -91,11 +92,11 @@ public:
         defaultBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shader_frag.glsl");
         m_defaultShader = defaultBuilder.build();
 
-        // not used for now
         ShaderBuilder shadowBuilder;
         shadowBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shadow_vert.glsl");
         shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl");
         m_shadowShader = shadowBuilder.build();
+        m_sunShadowMap.initialize(SUN_SHADOW_RESOLUTION);
     }
 
     void update()
@@ -126,6 +127,7 @@ public:
 private:
     static constexpr float CAMERA_FOV_DEGREES = 45.0f;
     static constexpr float PLATFORM_HEIGHT = 0.38f;
+    static constexpr int SUN_SHADOW_RESOLUTION = 2048;
 
     enum class ShadingMode {
         Lit,
@@ -211,6 +213,7 @@ private:
         ImGui::SameLine(intensityOffset);
         ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Intensity##Sun", &m_sun.intensity, 0.0f, 2.0f, "%.2f", clamped);
+        ImGui::Checkbox("Sun shadows", &m_enableSunShadows);
 
         ImGui::Checkbox("Spotlight", &m_spotlight.enabled);
         ImGui::SameLine(intensityOffset);
@@ -222,9 +225,55 @@ private:
         ImGui::Checkbox("Show light marker", &m_showLightMarker);
     }
 
+    void renderSunShadowMap()
+    {
+        if (!m_sun.enabled || !m_enableSunShadows)
+            return;
+        if (m_shadingMode != ShadingMode::Lit && m_shadingMode != ShadingMode::Pbr)
+            return;
+
+        // place a virtual camera toward the sun and look back at the exhibit.
+        // Fixed world-space bounds cover the platform and drone flight area,
+        // so orbiting the viewing camera does not move the shadow projection.
+        const glm::vec3 sceneCenter(0.0f, 2.0f, 0.0f);
+        const glm::vec3 directionToSun = glm::normalize(m_sun.directionToLight);
+        const glm::vec3 up(0.0f, 1.0f, 0.0f);
+
+        const glm::mat4 sunView = glm::lookAt(
+            sceneCenter + directionToSun * 20.0f, sceneCenter, up);
+        const glm::mat4 sunProjection = glm::ortho(
+            -10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 40.0f);
+        m_sunViewProjectionMatrix = sunProjection * sunView;
+
+        // switch to the shadow-sized depth target, then explicitly restore the
+        // scene target and viewport before rendering the camera view.
+        GLint previousFramebuffer, previousViewport[4];
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousFramebuffer);
+        glGetIntegerv(GL_VIEWPORT, previousViewport);
+        m_sunShadowMap.bindForDrawing();
+        glClear(GL_DEPTH_BUFFER_BIT);
+        m_shadowShader.bind();
+        const GLint matrixLocation = m_shadowShader.getUniformLocation("mvpMatrix");
+
+        // use the same current object transforms as the camera pass. Only the
+        // exhibit objects cast shadows; the sky and debug light marker do not.
+        for (const SceneObject& object : m_sceneObjects) {
+            const glm::mat4 lightMvp = m_sunViewProjectionMatrix * object.modelMatrix;
+            glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(lightMvp));
+            for (const GPUMesh& mesh : object.model->meshes)
+                mesh.drawGeometry();
+        }
+
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
+        glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
+    }
+
     void renderScene()
     {
-        
+        // enable depth testing before the light pass so each texel keeps the nearest surface.
+        glEnable(GL_DEPTH_TEST);
+        renderSunShadowMap();
+
         // ImGui supplies srgb so we make shader supply srgb as well
         // and disable automatic encoding for the framebuffer
         glDisable(GL_FRAMEBUFFER_SRGB);
@@ -232,13 +281,13 @@ private:
         glClearColor(0.84f, 0.87f, 0.90f, 1.0f);
         // depth still needs clearing each frame.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
 
         // draw the background sky
         m_environment.drawBackground(m_viewMatrix, m_projectionMatrix);
 
         const glm::mat4 viewProjectionMatrix = m_projectionMatrix * m_viewMatrix;
 
+        // bind everything for the main shader
         m_defaultShader.bind();
         glUniformMatrix4fv(m_defaultShader.getUniformLocation("viewProjectionMatrix"), 1, GL_FALSE, glm::value_ptr(viewProjectionMatrix));
         uploadLightUniforms();
@@ -250,6 +299,11 @@ private:
         glUniform1i(m_defaultShader.getUniformLocation("environmentMap"), 3);
         glUniform1f(m_defaultShader.getUniformLocation("environmentMaxLOD"), m_environment.maxReflectionLod());
         m_environment.bind(GL_TEXTURE3);
+        glUniform1i(m_defaultShader.getUniformLocation("enableSunShadows"), m_enableSunShadows);
+        glUniform1i(m_defaultShader.getUniformLocation("sunShadowMap"), 4);
+        glUniformMatrix4fv(m_defaultShader.getUniformLocation("sunViewProjectionMatrix"),
+            1, GL_FALSE, glm::value_ptr(m_sunViewProjectionMatrix));
+        m_sunShadowMap.bindForSampling(GL_TEXTURE4);
         glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
 
         for (const SceneObject& object : m_sceneObjects)
@@ -308,6 +362,7 @@ private:
     Window m_window;
     Trackball m_camera;
     Environment m_environment;
+    ShadowMap m_sunShadowMap;
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -336,12 +391,14 @@ private:
     bool m_enableMaterialTextures { true };
     bool m_enableNormalMapping { true };
     bool m_enableEnvironmentReflections { true };
+    bool m_enableSunShadows { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };
 
     glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix { 1.0f };
+    glm::mat4 m_sunViewProjectionMatrix { 1.0f };
 };
 
 int main()

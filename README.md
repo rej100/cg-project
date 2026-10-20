@@ -102,6 +102,7 @@ constants, and any nonzero emission values.
 | **Environment reflections (PBR)** | Toggle the environment's specular reflection in **PBR** mode; the sky background stays visible. |
 | **Emission** | Toggle the core's self-luminous contribution in **Lit** and **PBR** modes. |
 | **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
+| **Lighting → Sun shadows** | Toggle the sun's shadow map in **Lit** and **PBR** modes; enabled by default. |
 | **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
 | **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
 | **Lighting → Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
@@ -210,6 +211,46 @@ environment reflections. Both the sky and scene shaders convert linear RGB to
 sRGB for the current SDR output, so values above 1 still clip on display; the
 floating-point environment data is retained for the planned HDR/bloom pipeline.
 
+### Sun shadow mapping
+
+The sun casts hard shadows in **Lit** and **PBR** modes. A 2048 × 2048
+`GL_DEPTH_COMPONENT24` texture stores the nearest surface depth from the sun's
+viewpoint. `ShadowMap::initialize()` creates the texture and a depth-only
+framebuffer, with color drawing/reading disabled. The resources live until
+OpenGL context destruction, following the environment's explicit-initialization
+style.
+
+Before the camera pass, the scene is drawn into that depth texture using the
+existing `shadow_vert.glsl` / `shadow_frag.glsl` program. Each object supplies
+`sunProjection * sunView * modelMatrix`; `GPUMesh::drawGeometry()` draws the
+indexed geometry without material bindings. The platform, reactor, drone body,
+and propellers cast shadows. The debug light marker is excluded from this pass.
+The scene framebuffer and viewport are explicitly restored afterward.
+
+The light camera looks toward `(0, 2, 0)` from 20 m along the direction to the
+sun. Its orthographic bounds are −10 to +10 m horizontally and vertically, with
+near/far planes 0.1 and 40 m. These fixed world-space bounds cover the platform
+and drone area independently of the viewing camera. The map is rendered each
+frame when sunlight/shadows are enabled and the shading mode is Lit or PBR.
+
+During material shading, the fragment's world position is projected into the
+sun's map and its depth is compared against one nearest-filtered depth sample.
+Points outside the capture volume are treated as visible. The comparison uses
+the constant `SUN_SHADOW_BIAS = 0.0005` in `shaders/shader_frag.glsl` to reduce
+false self-shadowing. This initial version uses a single comparison, with hard
+edges and no slope-dependent bias or PCF filtering.
+
+The map occupies texture unit 4. Its binary visibility multiplies only the
+sunlight contribution; the spotlight, ambient fill, emission, and environment
+reflections are evaluated separately. The depth pass uses actual mesh geometry,
+while normal mapping continues to affect the material's shading response.
+Spotlight shadows are the next shadow-mapping milestone.
+
+To inspect the result, select **Lit**, disable **Spotlight** and **Emission**,
+set **Ambient strength** to 0, and toggle **Sun shadows** while looking at the
+reactor's shadow on the platform. The same toggle also applies in **PBR**.
+Reference: [LearnOpenGL — Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadow-Mapping).
+
 ### Lighting and its marker
 
 The sun supplies white directional light with direction-to-light
@@ -226,14 +267,14 @@ and constant strength with distance. Surface shading still depends on the
 normal's angle to the light. Coincident position/target values use a downward
 aim, and a fragment at the light position receives zero spotlight contribution.
 
-The Lighting section has four compact rows: sun enable/intensity, spotlight
+The Lighting section has sun enable/intensity, sun-shadow visibility, spotlight
 enable/intensity, ambient strength, and marker visibility. Both intensity
 sliders use the range 0–2. Widget widths and spacing follow the UI font size.
 
 The ambient strength starts at 0.25 and is added once, independently of the
 two direct lights. Future environment-based diffuse lighting will replace this
-constant fill. Shadow mapping is a later stage, using an orthographic map for
-the sun and a perspective map for the spotlight.
+constant fill. The sun uses the orthographic shadow map described above;
+a perspective shadow map for the spotlight is planned next.
 
 `assets/models/placeholder.obj` is a Blender-authored, 30-triangle box/arrow
 marker, loaded through the same OBJ/MTL pipeline as the exhibit models. Its
@@ -268,9 +309,11 @@ The main rendering responsibilities are:
 | `src/texture.cpp` | Upload images with explicit color space and the correct row orientation. |
 | `framework/src/image.cpp` | Load 8-bit material images and linear float HDR panoramas. |
 | `src/environment.cpp` | Convert the panorama into a cubemap, generate reflection mipmaps, own the cube resources, and draw the sky background. |
-| `src/mesh.cpp` | Own GPU geometry/material resources and bind each mesh's base-color, roughness, and normal textures when drawing. |
-| `src/application.cpp` | Own models, instances, lights, and environment; coordinate camera/UI, draw the sky first, upload shared settings and per-object transforms, and draw the light marker. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply ambient fill, emission, direct lights, and PBR environment reflections. |
+| `src/shadow_map.cpp` | Allocate a depth texture/framebuffer and bind it for shadow rendering or sampling. |
+| `src/mesh.cpp` | Own GPU geometry/material resources, bind material textures for normal drawing, and provide geometry-only drawing for depth passes. |
+| `src/application.cpp` | Own models, instances, lights, environment, and sun shadow map; render light depth before the camera view, coordinate camera/UI and shared settings, and draw the light marker. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply sun visibility, ambient fill, emission, direct lights, and PBR environment reflections. |
+| `shaders/shadow_{vert,frag}.glsl` | Project geometry from the light's viewpoint and let the depth test store the nearest surface. |
 | `shaders/skybox_vert.glsl`, `environment_convert_frag.glsl`, `skybox_frag.glsl` | Share the direction-supplying cube vertex shader between panorama conversion and sky rendering. |
 
 The loaded models are stable `Application` members. Scene objects
