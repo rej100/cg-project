@@ -174,14 +174,13 @@ vec3 shadeEnvironment(vec3 baseColor, float metallic, float roughness, vec3 norm
     if (!enableEnvironmentReflections)
         return vec3(0.0);
 
-    // Trace the view ray backwards through a mirror bounce. Only its world
-    // direction matters because this environment is assumed infinitely distant.
+    // to get the color of the skybox that we are reflecting we go camera to our point, reflect about our normal,
+    // check where that lands on the skybox
     vec3 reflectedDirection = reflect(-viewDirection, normal);
     float lod = clamp(roughness, 0.0, 1.0) * environmentMaxLOD;
     vec3 reflectedColor = textureLod(environmentMap, reflectedDirection, lod).rgb;
 
-    // Metals tint the reflection with their base color; dielectrics start at 4%.
-    // This is approximate environment specular, not full diffuse/specular IBL.
+    // use fresnel for how much we are reflecting 
     vec3 f0 = mix(vec3(0.04), baseColor, metallic);
     float nDotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
     return pbrFresnel(nDotV, f0) * reflectedColor;
@@ -238,7 +237,6 @@ void main()
     vec3 normal = resolveShadingNormal(normalize(fragNormal));
     if (shadingMode == SHADING_NORMALS) {
         // change normal xyz from [-1, 1] to [0, 1] for RGB
-        // Diagnostic display RGB; bypass the linear-light material/lighting path.
         fragColor = vec4(normal * 0.5 + 0.5, 1.0);
         return;
     }
