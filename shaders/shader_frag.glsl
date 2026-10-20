@@ -54,7 +54,7 @@ uniform SpotLight spotlight;
 in vec3 fragPosition; // World-space position.
 in vec3 fragNormal;
 in vec2 fragTexCoord;
-in vec4 fragTangentAndBitangentSign; // xyz: interpolated tangent; w: bitangent sign.
+in vec4 fragTangentAndBitangentSign; // xyz: interpolated tangent w: bitangent sign.
 
 layout(location = 0) out vec4 fragColor;
 
