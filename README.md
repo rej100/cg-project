@@ -282,8 +282,8 @@ the two independent shadow checkboxes.
 ### Lighting and its marker
 
 The sun supplies white directional light with direction-to-light
-`(-0.4, 1, 0.6)` and default intensity 0.75. The spotlight starts at
-`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 0.3,
+`(-0.4, 1, 0.6)` and default intensity 1.25. The spotlight starts at
+`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 0.5,
 and a single cone half-angle of 25° (50° full opening). Its direction is derived
 from `target - position`. Position, target, light colors, and cone angle are
 configured in `src/light.h`; settings are uploaded as ordinary uniforms.
