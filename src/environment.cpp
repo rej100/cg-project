@@ -261,20 +261,24 @@ void Environment::bind(GLenum textureSlot) const
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap);
 }
 
+// the way we do the background is just draw what the camera would see if there were no objects (just the cubemap all around it)
+// and then draw everything on top of that normally
 void Environment::drawBackground(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix) const
 {
     const GLboolean depthTest = glIsEnabled(GL_DEPTH_TEST);
     const GLboolean cullFace = glIsEnabled(GL_CULL_FACE);
     GLboolean depthWrite;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWrite);
-    // Paint the sky first without recording any depth, so even objects farther
-    // away than this small helper cube can be drawn over it afterwards.
+    // have to draw sky first without recording any depth so stuff farther
+    // away than the 2x2 3d cube can be drawn over it
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
     glDisable(GL_CULL_FACE);
 
     // Keeping only view rotation makes the cube follow camera translation.
     // Moving cannot approach the sky; turning still changes the lookup direction.
+
+    // the fourth column of the viewMatrix we get has the translation of the camera but we don't want it
     const glm::mat4 viewProjection = projectionMatrix * glm::mat4(glm::mat3(viewMatrix));
     m_skyboxShader.bind();
     glUniformMatrix4fv(m_skyboxShader.getUniformLocation("viewProjectionMatrix"),
