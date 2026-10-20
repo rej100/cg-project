@@ -88,16 +88,18 @@ float sunShadowVisibility()
     if (!enableSunShadows)
         return 1.0;
 
-    // project this world-space point into the sun's depth image. OpenGL clip
-    // coordinates become texture coordinates and stored depth in [0, 1].
+    // get the position of our fragment from the perspective of the sun
     vec4 lightPosition = sunViewProjectionMatrix * vec4(fragPosition, 1.0);
     vec3 shadowCoordinates = lightPosition.xyz / lightPosition.w;
+    // coordinates are from -1 to 1 but we need from 0 to 1 for the texture
     shadowCoordinates = shadowCoordinates * 0.5 + 0.5;
 
-    // the map only describes its finite capture volume. Treat points outside
-    // that volume as visible instead of extending the edge texels' shadows.
-    if (any(lessThan(shadowCoordinates, vec3(0.0)))
-        || any(greaterThan(shadowCoordinates, vec3(1.0))))
+    // if outside the shadowmap return full visibility
+    if (shadowCoordinates.x < 0.0 || shadowCoordinates.x > 1.0)
+        return 1.0;
+    if (shadowCoordinates.y < 0.0 || shadowCoordinates.y > 1.0)
+        return 1.0;
+    if (shadowCoordinates.z < 0.0 || shadowCoordinates.z > 1.0)
         return 1.0;
 
     float closestDepth = texture(sunShadowMap, shadowCoordinates.xy).r;
