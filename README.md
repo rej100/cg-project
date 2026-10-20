@@ -87,49 +87,51 @@ constants, and any nonzero emission values.
 
 ### Scene controls
 
-| Control | Action |
-| --- | --- |
-| Left mouse drag over the scene | Orbit around the camera's target. |
-| Right mouse drag over the scene | Pan the camera and its target. |
-| Mouse wheel over the scene | Zoom in or out. |
-| **Scene overview** | Frame the platform and reactor from above their front side (+Z). |
-| **Reactor** | Frame the reactor more closely. |
-| **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
-| **Platform logo** | Frame the logo near the platform's front rim. |
-| **Shading** | Select **Lit** (diffuse reference), **PBR**, **Base color**, or **Normals**. |
-| **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
-| **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
-| **Environment reflections (PBR)** | Toggle the environment's specular reflection in **PBR** mode; the sky background stays visible. |
-| **Emission** | Toggle the core's self-luminous contribution in **Lit** and **PBR** modes. |
-| **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
-| **Lighting → Sun shadows** | Toggle the sun's shadow map in **Lit** and **PBR** modes; enabled by default. |
-| **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
-| **Lighting → Spotlight shadows** | Toggle the spotlight's shadow map in **Lit** and **PBR** modes; enabled by default. |
-| **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
-| **Lighting → Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
+The **Scene controls** panel groups controls under collapsible feature headers,
+all expanded by default. **PBR** is the initial shading mode. Over the scene,
+left mouse drag orbits around the camera's target, right drag pans, and the
+mouse wheel zooms.
 
-**Lit** adds directional sunlight, spotlight illumination, and one adjustable
-ambient-fill term, then adds material emission when enabled. All contributions
-are accumulated in linear RGB. Emission is independent of the surface's
-angle to the light. The core's `Ke (0, 1, 1.8)` already includes its authored
+| Section | Control | Action |
+| --- | --- | --- |
+| **Multiple viewpoints** | **Scene overview** | Frame the platform and reactor from above their front side (+Z). |
+| | **Reactor** | Frame the reactor more closely. |
+| | **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
+| | **Platform logo** | Frame the logo near the platform's front rim. |
+| **Advanced shading: PBR** | **Shading** | Select **PBR** (default) or **Base color**. |
+| **Material textures** | **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
+| **Normal mapping** | **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
+| **Environment mapping** | **Environment reflections** | Toggle the environment's specular reflection in **PBR** mode; the sky background stays visible. |
+| **Shadows from multiple light sources** | **Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
+| | **Sun shadows** | Toggle the sun's shadow map in **PBR** mode; enabled by default. |
+| | **Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
+| | **Spotlight shadows** | Toggle the spotlight's shadow map in **PBR** mode; enabled by default. |
+| | **Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
+| | **Emission** | Toggle the core's self-luminous contribution in **PBR** mode. |
+| | **Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
+| **UI settings** | **Display scale / UI scale** | Show the detected display scale and adjust the UI size. |
+
+**PBR** adds directional sunlight, spotlight illumination, environment
+reflections, and one adjustable ambient-fill term, then adds material emission
+when enabled. All contributions are accumulated in linear RGB. Emission is
+independent of the surface's angle to the light. The core's `Ke (0, 1, 1.8)`
+already includes its authored
 strength and is used directly. The current SDR output clips channels above 1;
 HDR rendering and bloom are planned for preserving excess brightness and adding
 a halo.
 **Base color** displays the material color or texture without lighting.
-**Normals** displays the surface normals actually used for shading, mapping
-XYZ components from [-1, 1] into RGB [0, 1]. The emission toggle affects only
-**Lit** and **PBR** modes.
+The emission toggle affects only **PBR** mode.
 
 ### PBR shading and the material-textures toggle
 
-**PBR** replaces the simple diffuse response with a metallic/roughness
-Cook-Torrance BRDF: GGX specular highlights, Smith visibility, Schlick fresnel,
+**PBR** uses a metallic/roughness Cook-Torrance BRDF: GGX specular highlights,
+Smith visibility, Schlick fresnel,
 and Lambert diffuse scaled down by metallic. Metals use their base color as the
 specular F0, while nonmetals reflect about 4%. Roughness is clamped to a small
 minimum (0.045) so zero-roughness materials stay numerically well-defined. The
 same function evaluates the sun and the spotlight; ambient fill and emission
-accumulate as in **Lit** mode. Environment reflections add a view-dependent
-specular contribution when enabled.
+are added separately. Environment reflections add a view-dependent specular
+contribution when enabled.
 
 The **Material textures** checkbox chooses the source of the shading inputs
 independently of the shading formula. When on, each material samples its
@@ -137,7 +139,7 @@ available base-color and roughness images; when off, it uses the constants
 loaded from the MTL: gold keeps its authored gold color, metallic 1, and
 roughness 0.21, while textured marble falls back to its imported gray base
 color (0.6, 0.6, 0.6) and roughness 0. Sampled roughness only affects **PBR**;
-the diffuse **Lit** reference has no roughness-dependent response.
+**Base color** displays only the material color or base-color image.
 
 ### Normal mapping
 
@@ -157,13 +159,12 @@ mappedNormal.xy *= normalMapStrength;                  // authored -bm strength
 shadingNormal = normalize(tangentToWorld * mappedNormal);
 ```
 
-The resolved normal feeds the **Lit**, **PBR**, and **Normals** paths. The
-platform logo uses strength 1.25 and the reactor panel 1.5, exported as
+The resolved normal feeds the **PBR** shading path. The platform logo uses
+strength 1.25 and the reactor panel 1.5, exported as
 `map_Bump -bm ...` and loaded as linear/non-color data. Materials without a
 normal map, and fragments whose UVs carry no usable tangent, fall back to the
 mesh normal. The **Normal mapping** checkbox is independent of **Material
-textures**: artwork visibility and relief shading can be toggled separately,
-and the **Normals** diagnostic displays whichever normal is in use.
+textures**: artwork visibility and relief shading can be toggled separately.
 
 ### Environment mapping
 
@@ -205,16 +206,16 @@ not the reactor or drone; the cubemap is bound once per frame on texture unit 3
 (base color, roughness, and normal maps occupy units 0, 1, and 2).
 
 To inspect the effect, choose **PBR**, use the **Reactor** camera, orbit around
-the curved gold rings/collar, and toggle **Environment reflections (PBR)**.
+the curved gold rings/collar, and toggle **Environment reflections**.
 The reflected sky shifts across the gold while the background and direct
-lighting stay visible. **Lit**, **Base color**, and **Normals** do not add
-environment reflections. Both the sky and scene shaders convert linear RGB to
-sRGB for the current SDR output, so values above 1 still clip on display; the
+lighting stay visible. **Base color** does not add environment reflections.
+Both the sky and scene shaders convert linear RGB to sRGB for the current SDR
+output, so values above 1 still clip on display; the
 floating-point environment data is retained for the planned HDR/bloom pipeline.
 
 ### Sun shadow mapping
 
-The sun casts hard shadows in **Lit** and **PBR** modes. A 2048 × 2048
+The sun casts hard shadows in **PBR** mode. A 2048 × 2048
 `GL_DEPTH_COMPONENT24` texture stores the nearest surface depth from the sun's
 viewpoint. `ShadowMap::initialize()` creates the texture and a depth-only
 framebuffer, with color drawing/reading disabled. The resources live until
@@ -232,12 +233,12 @@ The light camera looks toward `(0, 2, 0)` from 20 m along the direction to the
 sun. Its orthographic bounds are −10 to +10 m horizontally and vertically, with
 near/far planes 0.1 and 40 m. These fixed world-space bounds cover the platform
 and drone area independently of the viewing camera. The map is rendered each
-frame when sunlight/shadows are enabled and the shading mode is Lit or PBR.
+frame when sunlight/shadows are enabled and the shading mode is PBR.
 
 During material shading, the fragment's world position is projected into the
 sun's map and its depth is compared against one nearest-filtered depth sample.
 Points outside the capture volume are treated as visible. The comparison uses
-the constant `DEPTH_BIAS = 0.0005` in `shaders/shader_frag.glsl` to reduce
+the shared constant `DEPTH_BIAS = 0.001` in `shaders/shader_frag.glsl` to reduce
 false self-shadowing. This initial version uses a single comparison, with hard
 edges and no slope-dependent bias or PCF filtering.
 
@@ -246,9 +247,9 @@ sunlight contribution; the spotlight, ambient fill, emission, and environment
 reflections are evaluated separately. The depth pass uses actual mesh geometry,
 while normal mapping continues to affect the material's shading response.
 
-To inspect the result, select **Lit**, disable **Spotlight** and **Emission**,
-set **Ambient strength** to 0, and toggle **Sun shadows** while looking at the
-reactor's shadow on the platform. The same toggle also applies in **PBR**.
+To inspect the result, select **PBR**, disable **Spotlight**, **Emission**, and
+**Environment reflections**, set **Ambient strength** to 0, and toggle **Sun
+shadows** while looking at the reactor's shadow on the platform.
 Reference: [LearnOpenGL — Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadow-Mapping).
 
 ### Spotlight shadow mapping
@@ -269,15 +270,14 @@ projects the fragment into the spotlight image, divides by the perspective
 `w`, converts to [0, 1], and makes one nearest-sampled depth comparison. Points
 at/behind the light or outside the capture volume return full shadow-map
 visibility; the existing cone test determines whether they receive spotlight
-illumination. `SPOTLIGHT_DEPTH_BIAS = 0.0001` is separate from the sun's bias
-because perspective depth has a different distribution. Both maps use constant
-bias and hard, unfiltered shadow edges.
+illumination. Both maps use the shared `DEPTH_BIAS = 0.001` constant and hard,
+unfiltered shadow edges.
 
 Spotlight visibility multiplies only the spotlight's direct-light contribution
-in Lit and PBR. To inspect it alone, select **Lit**, disable **Sun** and
-**Emission**, set **Ambient strength** to 0, and toggle **Spotlight shadows**.
-Then enable both lights and compare their shadows using the two independent
-shadow checkboxes.
+in PBR. To inspect it alone, select **PBR**, disable **Sun**, **Emission**, and
+**Environment reflections**, set **Ambient strength** to 0, and toggle
+**Spotlight shadows**. Then enable both lights and compare their shadows using
+the two independent shadow checkboxes.
 
 ### Lighting and its marker
 
@@ -295,9 +295,10 @@ and constant strength with distance. Surface shading still depends on the
 normal's angle to the light. Coincident position/target values use a downward
 aim, and a fragment at the light position receives zero spotlight contribution.
 
-The Lighting section has enable/intensity and shadow controls for each light,
-plus ambient strength and marker visibility. Both intensity sliders use the
-range 0–2. Widget widths and spacing follow the UI font size.
+The **Shadows from multiple light sources** section has enable/intensity and
+shadow controls for each light, plus ambient strength, emission, and marker
+visibility. Both intensity sliders use the range 0–2. Widget widths and spacing
+follow the UI font size.
 
 The ambient strength starts at 0.25 and is added once, independently of the
 two direct lights. Future environment-based diffuse lighting will replace this
@@ -315,14 +316,14 @@ existing **Base color** path, then the selected shader mode is restored.
 The marker stays colored in every shading mode and with the lights disabled,
 while normal depth testing lets scene geometry obscure it.
 
-To compare the lights, use **Lit**, turn **Emission** off, and set
-**Ambient strength** to zero. Inspect the sun alone, the spotlight alone,
-and both together. With both lights off, the exhibit surfaces are black;
-the background and enabled debug marker remain visible. Changing the configured
-spotlight position or target updates both the illumination and marker placement.
-**PBR** uses the metallic/roughness data and roughness textures loaded from the
-MTL files, while **Lit** provides the diffuse reference. Normal mapping applies
-the baked logo/panel relief, and **PBR** also samples the environment for reflections.
+To compare the lights, use **PBR**, turn **Emission** and **Environment
+reflections** off, and set **Ambient strength** to zero. Inspect the sun alone,
+the spotlight alone, and both together. With both lights off, the exhibit
+surfaces are black; the background and enabled debug marker remain visible.
+Changing the configured spotlight position or target updates both the
+illumination and marker placement. **PBR** uses the metallic/roughness data and
+roughness textures loaded from the MTL files. Normal mapping applies the baked
+logo/panel relief, and environment reflections can be toggled independently.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader converts its final output to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
@@ -364,9 +365,9 @@ before the final sRGB conversion.
   font at 100% scale**. For example, a detected display scale of 2× produces a
   36-pixel font with the default UI setting. The startup console reports both
   the detected scale and initial font size.
-- The **Scene controls** panel shows **Display scale** and provides a **UI scale** slider
-  from **0.75× to 2.0×** for personal adjustment. This multiplier starts at 1.0×
-  each launch and applies on top of the detected display scale:
+- The **UI settings** section shows **Display scale** and provides a **UI scale**
+  slider from **0.75× to 2.0×** for personal adjustment. This multiplier starts at
+  1.0× each launch and applies on top of the detected display scale:
 
   ```text
   Font size = 18 px × display scale × UI scale
@@ -577,8 +578,8 @@ the blue logo remains visible as a flat printed design.
   pivot offsets, and component animation in code from its separate mesh assets.
 - **Camera presets:** whole-scene showcase, overhead route view, drone-follow
   view, reactor material close-up, and drone mechanism close-up.
-- **Material rendering:** PBR shading, an independently selectable simple
-  reference shader mode, material-texture sampling, tangent-space normal mapping,
+- **Material rendering:** PBR shading, an independently selectable unlit
+  base-color mode, material-texture sampling, tangent-space normal mapping,
   and environment reflection sampling.
 - **Environment preprocessing:** runtime conversion of the HDR panorama to a
   cubemap and roughness filtering for reflections.
@@ -598,7 +599,7 @@ the blue logo remains visible as a flat printed design.
 | Feature | Where it appears | How we show it / UI controls |
 | --- | --- | --- |
 | Multiple viewpoints | The platform, flight route, drone, and reactor details. | Switch between showcase, overhead, follow, and close-up camera presets while the same scene runs. |
-| Advanced shading: PBR | Polished marble beside gold trim, white ceramic, gold reactor rings, aluminium supports, and the dark sensor. Curved surfaces expose highlight shape and material differences. | Compare PBR against the simple reference shading mode at a fixed camera, light setup, and exposure. Include the marble pedestal and gold collar in a material close-up. |
+| Advanced shading: PBR | Polished marble beside gold trim, white ceramic, gold reactor rings, aluminium supports, and the dark sensor. Curved surfaces expose highlight shape and material differences. | Compare PBR against unlit Base color at a fixed camera, light setup, and exposure. Include the marble pedestal and gold collar in a material close-up. |
 | Material textures | Marble veining on the platform and pedestal, reactor labels, drone markings, and spatial roughness variation. | Toggle material textures against constant material values. Marble veins and printed markings disappear, and roughness becomes uniform per material. Keep normal mapping separately controllable. |
 | Normal mapping | Pronounced beveled TU Delft logo on the platform, embossed logo and grooves/screw heads on the reactor panel, and drone panel detail. | Use the platform-logo or reactor close-up and toggle normal mapping while keeping material textures enabled. The logo changes from apparently raised and beveled to flat colored artwork; grooves and screw heads flatten too, while the mesh silhouette stays unchanged. |
 | Environment mapping | Gold reactor rings and metallic drone trim reflect the sky and distant environment. | Move the camera around the curved metal and toggle its environment-reflection contribution. Keep the background and direct lighting visible. |

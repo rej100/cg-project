@@ -195,7 +195,7 @@ assign materials by name rather than by mesh order.
 
 The core's Blender emission color is `(0, 0.25, 0.45)` with strength 4, exported
 as `Ke 0 1 1.8`. The application reads this linear emission value directly and
-adds it in Lit mode when the **Emission** checkbox is enabled. HDR rendering and
+adds it in PBR mode when the **Emission** checkbox is enabled. HDR rendering and
 bloom will provide the surrounding halo in a later rendering stage.
 
 As with the platform, the panel's MTL reference is

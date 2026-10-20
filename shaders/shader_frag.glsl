@@ -65,10 +65,8 @@ in vec4 fragTangentAndBitangentSign; // xyz: interpolated tangent w: bitangent s
 layout(location = 0) out vec4 fragColor;
 
 // this has to be the same as Application::ShadingMode
-const int SHADING_LIT = 0;
-const int SHADING_PBR = 1;
-const int SHADING_BASE_COLOR = 2;
-const int SHADING_NORMALS = 3;
+const int SHADING_PBR = 0;
+const int SHADING_BASE_COLOR = 1;
 
 const float PI = 3.14159265359;
 
@@ -76,13 +74,6 @@ const float PI = 3.14159265359;
 const float MIN_ROUGHNESS = 0.045;
 
 const float DEPTH_BIAS = 0.001;
-
-// input and output are linear rgb
-vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
-{
-    float diffuse = max(dot(normal, directionToLight), 0.0);
-    return baseColor * incomingLight * diffuse;
-}
 
 // https://learnopengl.com/Advanced-Lighting/Shadow-Mapping
 // basically the same as the exercises
@@ -134,31 +125,6 @@ float spotlightShadowVisibility()
     if (shadowCoordinates.z - DEPTH_BIAS > closestDepth)
         return 0.0;
     return 1.0;
-}
-
-vec3 shadeSun(vec3 baseColor, vec3 normal)
-{
-    if (!sun.enabled)
-        return vec3(0.0);
-
-    return sunShadowVisibility() * shadeDiffuse(baseColor, normal, normalize(sun.directionToLight), sun.color * sun.intensity);
-}
-
-vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
-{
-    if (!spotlight.enabled)
-        return vec3(0.0);
-
-    vec3 toLight = spotlight.position - fragPosition;
-    if (dot(toLight, toLight) < 0.000001)
-        return vec3(0.0);
-
-    vec3 directionToLight = normalize(toLight);
-    float coneAlignment = dot(spotlight.direction, -directionToLight);
-    if (coneAlignment < spotlight.coneCos)
-        return vec3(0.0);
-
-    return spotlightShadowVisibility() * shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
 }
 
 // cook-torrance with ggx distribution, smith visibility, and schlick fresnel
@@ -294,13 +260,6 @@ vec3 resolveShadingNormal(vec3 meshNormal)
 
 void main()
 {
-    vec3 normal = resolveShadingNormal(normalize(fragNormal));
-    if (shadingMode == SHADING_NORMALS) {
-        // change normal xyz from [-1, 1] to [0, 1] for RGB
-        fragColor = vec4(normal * 0.5 + 0.5, 1.0);
-        return;
-    }
-
     vec3 baseColor = kd;
     float surfaceRoughness = max(roughness, MIN_ROUGHNESS);
     if (enableMaterialTextures) {
@@ -311,13 +270,8 @@ void main()
     }
 
     vec3 color = baseColor;
-    if (shadingMode == SHADING_LIT) {
-        color = baseColor * ambientStrength;
-        color += shadeSun(baseColor, normal);
-        color += shadeSpotlight(baseColor, normal);
-        if (enableEmission)
-            color += emission;
-    } else if (shadingMode == SHADING_PBR) {
+    if (shadingMode == SHADING_PBR) {
+        vec3 normal = resolveShadingNormal(normalize(fragNormal));
         vec3 viewDirection = normalize(cameraPosition - fragPosition);
         color = baseColor * ambientStrength;
         color += shadePbrSun(baseColor, metallic, surfaceRoughness, normal, viewDirection);

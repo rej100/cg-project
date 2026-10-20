@@ -132,10 +132,8 @@ private:
     static constexpr int SPOTLIGHT_SHADOW_RESOLUTION = 2048;
 
     enum class ShadingMode {
-        Lit,
         Pbr,
-        BaseColor,
-        Normals
+        BaseColor
     };
 
     void setOverviewCamera()
@@ -166,42 +164,44 @@ private:
     void drawUi()
     {
         ImGui::Begin("Scene controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::TextUnformatted("Platform: 12 m diameter");
-        ImGui::TextUnformatted("Reactor: 3.5 m tall");
 
-        if (ImGui::Button("Scene overview"))
-            setOverviewCamera();
-        ImGui::SameLine();
-        if (ImGui::Button("Reactor"))
-            setReactorCamera();
-        if (ImGui::Button("Reactor panel"))
-            setReactorPanelCamera();
-        ImGui::SameLine();
-        if (ImGui::Button("Platform logo"))
-            setPlatformLogoCamera();
+        if (ImGui::CollapsingHeader("Multiple viewpoints", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::Button("Scene overview"))
+                setOverviewCamera();
+            ImGui::SameLine();
+            if (ImGui::Button("Reactor"))
+                setReactorCamera();
+            if (ImGui::Button("Reactor panel"))
+                setReactorPanelCamera();
+            ImGui::SameLine();
+            if (ImGui::Button("Platform logo"))
+                setPlatformLogoCamera();
+        }
 
-        int shadingMode = static_cast<int>(m_shadingMode);
-        if (ImGui::Combo("Shading", &shadingMode, "Lit\0PBR\0Base color\0Normals\0"))
-            m_shadingMode = static_cast<ShadingMode>(shadingMode);
-        ImGui::Checkbox("Emission", &m_enableEmission);
-        ImGui::SameLine(ImGui::GetFontSize() * 9.0f);
-        ImGui::Checkbox("Material textures", &m_enableMaterialTextures);
-        ImGui::Checkbox("Normal mapping", &m_enableNormalMapping);
-        ImGui::Checkbox("Environment reflections (PBR)", &m_enableEnvironmentReflections);
+        if (ImGui::CollapsingHeader("Advanced shading: PBR", ImGuiTreeNodeFlags_DefaultOpen)) {
+            int shadingMode = static_cast<int>(m_shadingMode);
+            if (ImGui::Combo("Shading", &shadingMode, "PBR\0Base color\0"))
+                m_shadingMode = static_cast<ShadingMode>(shadingMode);
+        }
 
-        if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Material textures##Section", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::Checkbox("Material textures", &m_enableMaterialTextures);
+
+        if (ImGui::CollapsingHeader("Normal mapping##Section", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::Checkbox("Normal mapping", &m_enableNormalMapping);
+
+        if (ImGui::CollapsingHeader("Environment mapping", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::Checkbox("Environment reflections", &m_enableEnvironmentReflections);
+
+        if (ImGui::CollapsingHeader("Shadows from multiple light sources", ImGuiTreeNodeFlags_DefaultOpen))
             drawLightingUi();
 
-        ImGui::Separator();
-        ImGui::TextUnformatted("Left drag: orbit");
-        ImGui::TextUnformatted("Right drag: pan");
-        ImGui::TextUnformatted("Mouse wheel: zoom");
-
-        ImGui::Separator();
-        ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
-        float uiScale = m_window.getUiScale();
-        if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
-            m_window.setUiScale(uiScale);
+        if (ImGui::CollapsingHeader("UI settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
+            float uiScale = m_window.getUiScale();
+            if (ImGui::SliderFloat("UI scale", &uiScale, 0.75f, 2.0f, "%.2fx"))
+                m_window.setUiScale(uiScale);
+        }
         ImGui::End();
     }
 
@@ -225,6 +225,7 @@ private:
 
         ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Ambient strength", &m_ambientStrength, 0.0f, 1.0f, "%.2f", clamped);
+        ImGui::Checkbox("Emission", &m_enableEmission);
         ImGui::Checkbox("Show light marker", &m_showLightMarker);
     }
 
@@ -234,7 +235,7 @@ private:
         {
             return;
         }
-        if (m_shadingMode != ShadingMode::Lit && m_shadingMode != ShadingMode::Pbr)
+        if (m_shadingMode != ShadingMode::Pbr)
         {
             return;
         }
@@ -263,7 +264,7 @@ private:
         {
             return;
         }
-        if (m_shadingMode != ShadingMode::Lit && m_shadingMode != ShadingMode::Pbr)
+        if (m_shadingMode != ShadingMode::Pbr)
         {
             return;
         }
@@ -431,7 +432,7 @@ private:
     Model m_spotlightMarkerModel;
     SceneObject m_spotlightMarkerObject {};
     bool m_showLightMarker { true };
-    ShadingMode m_shadingMode { ShadingMode::Lit };
+    ShadingMode m_shadingMode { ShadingMode::Pbr };
     bool m_enableEmission { true };
     bool m_enableMaterialTextures { true };
     bool m_enableNormalMapping { true };
