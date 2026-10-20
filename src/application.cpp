@@ -97,6 +97,7 @@ public:
         shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl");
         m_shadowShader = shadowBuilder.build();
         m_sunShadowMap.initialize(SUN_SHADOW_RESOLUTION);
+        m_spotlightShadowMap.initialize(SPOTLIGHT_SHADOW_RESOLUTION);
     }
 
     void update()
@@ -128,6 +129,7 @@ private:
     static constexpr float CAMERA_FOV_DEGREES = 45.0f;
     static constexpr float PLATFORM_HEIGHT = 0.38f;
     static constexpr int SUN_SHADOW_RESOLUTION = 2048;
+    static constexpr int SPOTLIGHT_SHADOW_RESOLUTION = 2048;
 
     enum class ShadingMode {
         Lit,
@@ -219,6 +221,7 @@ private:
         ImGui::SameLine(intensityOffset);
         ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Intensity##Spotlight", &m_spotlight.intensity, 0.0f, 2.0f, "%.2f", clamped);
+        ImGui::Checkbox("Spotlight shadows", &m_enableSpotlightShadows);
 
         ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Ambient strength", &m_ambientStrength, 0.0f, 1.0f, "%.2f", clamped);
@@ -251,13 +254,39 @@ private:
             -10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 40.0f);
         m_sunViewProjectionMatrix = sunProjection * sunView;
 
+        renderShadowMap(m_sunShadowMap, m_sunViewProjectionMatrix);
+    }
+
+    void renderSpotlightShadowMap()
+    {
+        if (!m_spotlight.enabled || !m_enableSpotlightShadows)
+        {
+            return;
+        }
+        if (m_shadingMode != ShadingMode::Lit && m_shadingMode != ShadingMode::Pbr)
+        {
+            return;
+        }
+
+        const glm::vec3 up(0.0f, 1.0f, 0.0f);
+        const glm::mat4 spotlightView = glm::lookAt(m_spotlight.position, m_spotlight.position + m_spotlight.direction(), up);
+        const glm::mat4 spotlightProjection = glm::perspective(
+            glm::radians(m_spotlight.coneHalfAngleDegrees * 2.0f), 1.0f, 0.5f, 30.0f);
+
+        m_spotlightViewProjectionMatrix = spotlightProjection * spotlightView;
+
+        renderShadowMap(m_spotlightShadowMap, m_spotlightViewProjectionMatrix);
+    }
+
+    void renderShadowMap(const ShadowMap& shadowMap, const glm::mat4& lightViewProjectionMatrix)
+    {
         // save the active framembuffer and the viewport before this function
         GLint previousFramebuffer, previousViewport[4];
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousFramebuffer);
         glGetIntegerv(GL_VIEWPORT, previousViewport);
         
         // bind the shadow map framebuffer
-        m_sunShadowMap.bindForDrawing();
+        shadowMap.bindForDrawing();
         // clear everything (so just the depth because shadowmap)
         glClear(GL_DEPTH_BUFFER_BIT);
         
@@ -267,7 +296,7 @@ private:
 
         // draw the depth of the scene from the perspective of the light camera into the shadowmap texture
         for (const SceneObject& object : m_sceneObjects) {
-            const glm::mat4 lightMvp = m_sunViewProjectionMatrix * object.modelMatrix;
+            const glm::mat4 lightMvp = lightViewProjectionMatrix * object.modelMatrix;
             glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(lightMvp));
             for (const GPUMesh& mesh : object.model->meshes)
                 mesh.drawGeometry();
@@ -279,9 +308,10 @@ private:
 
     void renderScene()
     {
-        // enable depth testing before the shadowmap pass
+        // enable depth testing before the shadowmap passes
         glEnable(GL_DEPTH_TEST);
         renderSunShadowMap();
+        renderSpotlightShadowMap();
 
         // ImGui supplies srgb so we make shader supply srgb as well
         // and disable automatic encoding for the framebuffer
@@ -313,6 +343,11 @@ private:
         glUniformMatrix4fv(m_defaultShader.getUniformLocation("sunViewProjectionMatrix"),
             1, GL_FALSE, glm::value_ptr(m_sunViewProjectionMatrix));
         m_sunShadowMap.bindForSampling(GL_TEXTURE4);
+        glUniform1i(m_defaultShader.getUniformLocation("enableSpotlightShadows"), m_enableSpotlightShadows);
+        glUniform1i(m_defaultShader.getUniformLocation("spotlightShadowMap"), 5);
+        glUniformMatrix4fv(m_defaultShader.getUniformLocation("spotlightViewProjectionMatrix"),
+            1, GL_FALSE, glm::value_ptr(m_spotlightViewProjectionMatrix));
+        m_spotlightShadowMap.bindForSampling(GL_TEXTURE5);
         glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
 
         for (const SceneObject& object : m_sceneObjects)
@@ -372,6 +407,7 @@ private:
     Trackball m_camera;
     Environment m_environment;
     ShadowMap m_sunShadowMap;
+    ShadowMap m_spotlightShadowMap;
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -401,6 +437,7 @@ private:
     bool m_enableNormalMapping { true };
     bool m_enableEnvironmentReflections { true };
     bool m_enableSunShadows { true };
+    bool m_enableSpotlightShadows { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };
@@ -408,6 +445,7 @@ private:
     glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix { 1.0f };
     glm::mat4 m_sunViewProjectionMatrix { 1.0f };
+    glm::mat4 m_spotlightViewProjectionMatrix { 1.0f };
 };
 
 int main()

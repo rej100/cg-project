@@ -21,6 +21,8 @@ uniform sampler2D normalMap;
 uniform samplerCube environmentMap;
 uniform sampler2D sunShadowMap;
 uniform mat4 sunViewProjectionMatrix;
+uniform sampler2D spotlightShadowMap;
+uniform mat4 spotlightViewProjectionMatrix;
 uniform bool hasBaseColorTexture;
 uniform bool hasRoughnessTexture;
 uniform bool hasNormalTexture;
@@ -30,6 +32,7 @@ uniform bool enableMaterialTextures;
 uniform bool enableNormalMapping;
 uniform bool enableEnvironmentReflections;
 uniform bool enableSunShadows;
+uniform bool enableSpotlightShadows;
 uniform float environmentMaxLOD;
 uniform float ambientStrength;
 
@@ -72,7 +75,7 @@ const float PI = 3.14159265359;
 // for when roughness is 0 so the pbr doesnt break
 const float MIN_ROUGHNESS = 0.045;
 
-const float DEPTH_BIAS = 0.0005;
+const float DEPTH_BIAS = 0.001;
 
 // input and output are linear rgb
 vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
@@ -108,6 +111,31 @@ float sunShadowVisibility()
     return 1.0;
 }
 
+float spotlightShadowVisibility()
+{
+    if (!enableSpotlightShadows)
+        return 1.0;
+
+    vec4 lightPosition = spotlightViewProjectionMatrix * vec4(fragPosition, 1.0);
+    if (lightPosition.w <= 0.0)
+        return 1.0;
+
+    vec3 shadowCoordinates = lightPosition.xyz / lightPosition.w;
+    shadowCoordinates = shadowCoordinates * 0.5 + 0.5;
+
+    if (shadowCoordinates.x < 0.0 || shadowCoordinates.x > 1.0)
+        return 1.0;
+    if (shadowCoordinates.y < 0.0 || shadowCoordinates.y > 1.0)
+        return 1.0;
+    if (shadowCoordinates.z < 0.0 || shadowCoordinates.z > 1.0)
+        return 1.0;
+
+    float closestDepth = texture(spotlightShadowMap, shadowCoordinates.xy).r;
+    if (shadowCoordinates.z - DEPTH_BIAS > closestDepth)
+        return 0.0;
+    return 1.0;
+}
+
 vec3 shadeSun(vec3 baseColor, vec3 normal)
 {
     if (!sun.enabled)
@@ -130,7 +158,7 @@ vec3 shadeSpotlight(vec3 baseColor, vec3 normal)
     if (coneAlignment < spotlight.coneCos)
         return vec3(0.0);
 
-    return shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
+    return spotlightShadowVisibility() * shadeDiffuse(baseColor, normal, directionToLight, spotlight.color * spotlight.intensity);
 }
 
 // cook-torrance with ggx distribution, smith visibility, and schlick fresnel
@@ -198,7 +226,7 @@ vec3 shadePbrSpotlight(vec3 baseColor, float metallic, float roughness, vec3 nor
     if (coneAlignment < spotlight.coneCos)
         return vec3(0.0);
 
-    return shadePBR(baseColor, metallic, roughness, normal, viewDirection, directionToLight, spotlight.color * spotlight.intensity);
+    return spotlightShadowVisibility() * shadePBR(baseColor, metallic, roughness, normal, viewDirection, directionToLight, spotlight.color * spotlight.intensity);
 }
 
 vec3 shadeEnvironment(vec3 baseColor, float metallic, float roughness, vec3 normal, vec3 viewDirection)

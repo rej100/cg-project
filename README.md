@@ -104,6 +104,7 @@ constants, and any nonzero emission values.
 | **Lighting → Sun / Intensity** | Toggle the directional sunlight and adjust its intensity on one row. |
 | **Lighting → Sun shadows** | Toggle the sun's shadow map in **Lit** and **PBR** modes; enabled by default. |
 | **Lighting → Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
+| **Lighting → Spotlight shadows** | Toggle the spotlight's shadow map in **Lit** and **PBR** modes; enabled by default. |
 | **Lighting → Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
 | **Lighting → Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
 
@@ -236,7 +237,7 @@ frame when sunlight/shadows are enabled and the shading mode is Lit or PBR.
 During material shading, the fragment's world position is projected into the
 sun's map and its depth is compared against one nearest-filtered depth sample.
 Points outside the capture volume are treated as visible. The comparison uses
-the constant `SUN_SHADOW_BIAS = 0.0005` in `shaders/shader_frag.glsl` to reduce
+the constant `DEPTH_BIAS = 0.0005` in `shaders/shader_frag.glsl` to reduce
 false self-shadowing. This initial version uses a single comparison, with hard
 edges and no slope-dependent bias or PCF filtering.
 
@@ -244,12 +245,39 @@ The map occupies texture unit 4. Its binary visibility multiplies only the
 sunlight contribution; the spotlight, ambient fill, emission, and environment
 reflections are evaluated separately. The depth pass uses actual mesh geometry,
 while normal mapping continues to affect the material's shading response.
-Spotlight shadows are the next shadow-mapping milestone.
 
 To inspect the result, select **Lit**, disable **Spotlight** and **Emission**,
 set **Ambient strength** to 0, and toggle **Sun shadows** while looking at the
 reactor's shadow on the platform. The same toggle also applies in **PBR**.
 Reference: [LearnOpenGL — Shadow Mapping](https://learnopengl.com/Advanced-Lighting/Shadow-Mapping).
+
+### Spotlight shadow mapping
+
+The spotlight has its own 2048 × 2048 depth map and independent **Spotlight
+shadows** checkbox. Its view starts at the spotlight position and looks along
+`m_spotlight.direction()`. A perspective projection uses twice the cone
+half-angle (currently 50° full field of view), square aspect ratio, and near/far
+planes of 0.5 and 30 m. This captures the region illuminated by the cone.
+
+Both lights reuse `renderShadowMap()`, the existing depth-only shaders, and
+`GPUMesh::drawGeometry()`. Each enabled map is rendered with current object
+transforms before the sky and camera-view scene. The helper explicitly restores
+the previous draw framebuffer and viewport after each light pass.
+
+The spotlight map is sampled on texture unit 5 (the sun uses unit 4). Its shader
+projects the fragment into the spotlight image, divides by the perspective
+`w`, converts to [0, 1], and makes one nearest-sampled depth comparison. Points
+at/behind the light or outside the capture volume return full shadow-map
+visibility; the existing cone test determines whether they receive spotlight
+illumination. `SPOTLIGHT_DEPTH_BIAS = 0.0001` is separate from the sun's bias
+because perspective depth has a different distribution. Both maps use constant
+bias and hard, unfiltered shadow edges.
+
+Spotlight visibility multiplies only the spotlight's direct-light contribution
+in Lit and PBR. To inspect it alone, select **Lit**, disable **Sun** and
+**Emission**, set **Ambient strength** to 0, and toggle **Spotlight shadows**.
+Then enable both lights and compare their shadows using the two independent
+shadow checkboxes.
 
 ### Lighting and its marker
 
@@ -267,14 +295,14 @@ and constant strength with distance. Surface shading still depends on the
 normal's angle to the light. Coincident position/target values use a downward
 aim, and a fragment at the light position receives zero spotlight contribution.
 
-The Lighting section has sun enable/intensity, sun-shadow visibility, spotlight
-enable/intensity, ambient strength, and marker visibility. Both intensity
-sliders use the range 0–2. Widget widths and spacing follow the UI font size.
+The Lighting section has enable/intensity and shadow controls for each light,
+plus ambient strength and marker visibility. Both intensity sliders use the
+range 0–2. Widget widths and spacing follow the UI font size.
 
 The ambient strength starts at 0.25 and is added once, independently of the
 two direct lights. Future environment-based diffuse lighting will replace this
 constant fill. The sun uses the orthographic shadow map described above;
-a perspective shadow map for the spotlight is planned next.
+the spotlight uses its own perspective shadow map.
 
 `assets/models/placeholder.obj` is a Blender-authored, 30-triangle box/arrow
 marker, loaded through the same OBJ/MTL pipeline as the exhibit models. Its
@@ -311,8 +339,8 @@ The main rendering responsibilities are:
 | `src/environment.cpp` | Convert the panorama into a cubemap, generate reflection mipmaps, own the cube resources, and draw the sky background. |
 | `src/shadow_map.cpp` | Allocate a depth texture/framebuffer and bind it for shadow rendering or sampling. |
 | `src/mesh.cpp` | Own GPU geometry/material resources, bind material textures for normal drawing, and provide geometry-only drawing for depth passes. |
-| `src/application.cpp` | Own models, instances, lights, environment, and sun shadow map; render light depth before the camera view, coordinate camera/UI and shared settings, and draw the light marker. |
-| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply sun visibility, ambient fill, emission, direct lights, and PBR environment reflections. |
+| `src/application.cpp` | Own models, instances, lights, environment, and both shadow maps; render each light's depth before the camera view, coordinate camera/UI and shared settings, and draw the light marker. |
+| `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply each light's visibility, ambient fill, emission, direct lights, and PBR environment reflections. |
 | `shaders/shadow_{vert,frag}.glsl` | Project geometry from the light's viewpoint and let the depth test store the nearest surface. |
 | `shaders/skybox_vert.glsl`, `environment_convert_frag.glsl`, `skybox_frag.glsl` | Share the direction-supplying cube vertex shader between panorama conversion and sky rendering. |
 
