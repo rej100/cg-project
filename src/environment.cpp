@@ -88,6 +88,7 @@ const float cubeVertices[] = {
 
 }
 
+// this function creates the environment cubemap from the sky panorama image, and creates the shader used for drawing the background
 void Environment::initialize(const std::filesystem::path& panoramaPath)
 {
     // load the sky
@@ -100,18 +101,24 @@ void Environment::initialize(const std::filesystem::path& panoramaPath)
     conversionBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/environment_convert_frag.glsl");
     Shader conversionShader = conversionBuilder.build();
 
+    // this is the shader for drawing the background. it just draws the cubemap (our 2x2x2 cube textured with the cubemap... )
+    // as if you were at the origin, ignoring all other objects.
+    // therefore it only needs the view projection matrix (where we are looking). the model matrix doesnt matter
     ShaderBuilder skyboxBuilder;
     skyboxBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/skybox_vert.glsl");
     skyboxBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/skybox_frag.glsl");
     m_skyboxShader = skyboxBuilder.build();
 
+    // save the opengl settings from before we started initialisation
     const OpenGLState previousState = readOpenGLState();
+    // activate texture texture slot 0
     glActiveTexture(GL_TEXTURE0);
     GLuint panoramaTexture = 0;
     GLuint captureFramebuffer = 0;
 
-    // stb stores the top row first. Flip rows for the conversion shader's
-    // bottom-up UVs; positive Y must sample the top (zenith) of the image.
+    // stb stores the top row first but uvs in the shaders are bottom up (positive Y is the top of the image)
+    // so flip rows for the shader
+    // stb gives us (0, 0) top left pixel but we want (0, 0) bottom left pixel
     const size_t rowValues = static_cast<size_t>(panorama.width) * HDRImage::channels;
     const size_t height = static_cast<size_t>(panorama.height);
     std::vector<float> bottomUpPixels(rowValues * height);
@@ -120,41 +127,65 @@ void Environment::initialize(const std::filesystem::path& panoramaPath)
             rowValues, bottomUpPixels.data() + row * rowValues);
     }
 
+    // generate a texture handle for the sky texture
     glGenTextures(1, &panoramaTexture);
+    // bind the texture in texture slot 0
     glBindTexture(GL_TEXTURE_2D, panoramaTexture);
+    // upload the pixels for the sky texture to the gpu
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, panorama.width, panorama.height,
         0, GL_RGB, GL_FLOAT, bottomUpPixels.data());
     // Left/right edges join at the panorama's longitude seam; top/bottom
     // are different poles and must not wrap into one another.
+
+    // set horizontal wrapping to repeat (the sky panorama is a full turnaround so the left and right sides meet)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    // the top and bottom represent different directions so clamp
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // use bilinear interpolation when sampling the texture when it is minified / magnified
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // generate a texture handle for the cubemap
     glGenTextures(1, &m_cubemap);
+
+    // a texture slot can at the same time have one 2D texture (right now panoramaTexture which has the sky texture)
+    // and one cubemap texture 
+    // bind the cubemap in texture slot 0
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap);
+
+    // a cubemap is just 6 2d textures, one for each face. we allocate them (set the size, gl_rgb32f etc)
     for (unsigned int face = 0; face < 6; ++face) {
-        // This HDRI's sun exceeds the half-float maximum (65504). Keep
-        // 32-bit floats so conversion does not clip it before tone mapping.
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, GL_RGB32F,
             FACE_SIZE, FACE_SIZE, 0, GL_RGB, GL_FLOAT, nullptr);
     }
+    // set all 3 wrap parameters to clamp to edge
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    // we use mipmaps for level of detail for reflections (rougher material == lower level of detail / higher mipmap level)
+    // set the the filtering to bilinear for within each mipmap layer and linear between layers
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    // set the filtering to bilinear for when the texture is magnified
+    // all of this is automatic when we use textureLod in the shader
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // create the vao for the 3d cube
     glGenVertexArrays(1, &m_cubeVao);
+    // create the buffer for the 3d cube vbo 
     glGenBuffers(1, &m_cubeVbo);
+    // select the 3d cube vao as the current vao
     glBindVertexArray(m_cubeVao);
+    // set the vbo of the 3d cube vao to the vbo we made
     glBindBuffer(GL_ARRAY_BUFFER, m_cubeVbo);
+    // put the vertex data in the vbo
     glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+    // enable and configure the positon attribute (only thin the vertices for the cube have)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
 
-    // Each view looks from the cube center at one face. These up vectors
-    // match OpenGL's cubemap face orientation, including the two Y faces.
+    // each view looks from the center at the sky. cube has 6 faces so we need one view for each
+    // https://learnopengl.com/Advanced-Lighting/Shadows/Point-Shadows
     const std::array<glm::mat4, 6> captureViews = {
         glm::lookAt(glm::vec3(0), glm::vec3( 1, 0, 0), glm::vec3(0, -1,  0)),
         glm::lookAt(glm::vec3(0), glm::vec3(-1, 0, 0), glm::vec3(0, -1,  0)),
@@ -163,44 +194,65 @@ void Environment::initialize(const std::filesystem::path& panoramaPath)
         glm::lookAt(glm::vec3(0), glm::vec3( 0, 0, 1), glm::vec3(0, -1,  0)),
         glm::lookAt(glm::vec3(0), glm::vec3( 0, 0,-1), glm::vec3(0, -1,  0))
     };
+
+    // we want 6 square faces so 90 fov and 1 aspect ratio.
     const glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 
+    // for each of the 6 faces we will draw into one of the 6 2d textures of the cubemap
+    // we need a framebuffer 
     glGenFramebuffers(1, &captureFramebuffer);
+    // we want to draw into the framebuffer we just made
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, captureFramebuffer);
+    // layout(location = 0) out vec4 fragColor in the conversion shader
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    // viemport to the size of the faces of the cubemap
     glViewport(0, 0, FACE_SIZE, FACE_SIZE);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE); // The camera sees the cube's inside faces.
-    glDisable(GL_BLEND);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_FRAMEBUFFER_SRGB); // Both panorama and cubemap are linear.
+    glDisable(GL_DEPTH_TEST); // doesnt matter i think
+    glDisable(GL_CULL_FACE); // we are inside the cube so dont cull
+    glDisable(GL_BLEND); // we want just the new color for each pixel
+    glDisable(GL_SCISSOR_TEST); // we dont use this but to be safe
+    glDisable(GL_FRAMEBUFFER_SRGB); // panorama and cubemap are linear rgb
+    // bind the conversion shader
     conversionShader.bind();
+    // the panorama sky texture is in texture unit 0
     glUniform1i(conversionShader.getUniformLocation("panoramaMap"), 0);
     const GLint matrixLocation = conversionShader.getUniformLocation("viewProjectionMatrix");
     for (unsigned int face = 0; face < 6; ++face) {
+        // draw into the selected face texture of the cubemap
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
             GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, m_cubemap, 0);
         if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             throw std::runtime_error("cubemap frambufer bad");
 
+        // set the view projection matrix for the face
         const glm::mat4 viewProjection = captureProjection * captureViews[face];
         glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(viewProjection));
+        // draw the helper cube with the camera looking at one of the faces
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
-    // Ordinary mipmaps give a cheap blur approximation, not the GGX
-    // convolution and BRDF integration used by full specular IBL.
+    // go back to the window framebuffer
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    // generate the mipmap for each face.
     glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+    // generate mipmap makes one level for each sqrt of the resultion
+    // so if original is 1024 x 1024 it wil make 
+    // level 0: 1024x1023
+    // lebel 1: 512
+    // level 2: 256
+    // ... so 10 in total 
     m_maxReflectionLod = std::log2(static_cast<float>(FACE_SIZE));
 
+    // get rid of the temporary framebuffer and texture
     glDeleteFramebuffers(1, &captureFramebuffer);
     glDeleteTextures(1, &panoramaTexture);
+
+    // set the opengl settings back to what they were before the initialisation
     restoreOpenGLState(previousState);
 
-    std::cout << "Loaded environment: " << panoramaPath.string() << " ("
-              << panorama.width << " x " << panorama.height << " HDR, "
-              << FACE_SIZE << " x " << FACE_SIZE << " cubemap faces)\n";
+    std::cout << "Loaded environment: " << panoramaPath.string() << " (" << panorama.width << " x " << panorama.height << " hdr "
+    << FACE_SIZE << " x " << FACE_SIZE << " cubemap faces)\n";
 }
 
 void Environment::bind(GLenum textureSlot) const
