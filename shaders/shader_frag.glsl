@@ -72,9 +72,7 @@ const float PI = 3.14159265359;
 // for when roughness is 0 so the pbr doesnt break
 const float MIN_ROUGHNESS = 0.045;
 
-// subtract this constant from the fragment's light-space depth when comparing,
-// so small depth/sampling errors do not make the surface shadow itself.
-const float SUN_SHADOW_BIAS = 0.0005;
+const float DEPTH_BIAS = 0.0005;
 
 // input and output are linear rgb
 vec3 shadeDiffuse(vec3 baseColor, vec3 normal, vec3 directionToLight, vec3 incomingLight)
@@ -103,7 +101,7 @@ float sunShadowVisibility()
         return 1.0;
 
     float closestDepth = texture(sunShadowMap, shadowCoordinates.xy).r;
-    if (shadowCoordinates.z - SUN_SHADOW_BIAS > closestDepth)
+    if (shadowCoordinates.z - DEPTH_BIAS > closestDepth)
         return 0.0;
     return 1.0;
 }

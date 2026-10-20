@@ -228,35 +228,44 @@ private:
     void renderSunShadowMap()
     {
         if (!m_sun.enabled || !m_enableSunShadows)
+        {
             return;
+        }
         if (m_shadingMode != ShadingMode::Lit && m_shadingMode != ShadingMode::Pbr)
+        {
             return;
+        }
 
-        // place a virtual camera toward the sun and look back at the exhibit.
-        // Fixed world-space bounds cover the platform and drone flight area,
+
         // so orbiting the viewing camera does not move the shadow projection.
+        // we need a camera for the shadow map, but the sun is directional so it doesnt have a world position
+        // we just make a camera that is looking at the center of the scene and is some distance away in the direction of the sun
         const glm::vec3 sceneCenter(0.0f, 2.0f, 0.0f);
         const glm::vec3 directionToSun = glm::normalize(m_sun.directionToLight);
         const glm::vec3 up(0.0f, 1.0f, 0.0f);
-
         const glm::mat4 sunView = glm::lookAt(
             sceneCenter + directionToSun * 20.0f, sceneCenter, up);
+
+        // since the sun is directional we want orhographic projection
         const glm::mat4 sunProjection = glm::ortho(
             -10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 40.0f);
         m_sunViewProjectionMatrix = sunProjection * sunView;
 
-        // switch to the shadow-sized depth target, then explicitly restore the
-        // scene target and viewport before rendering the camera view.
+        // save the active framembuffer and the viewport before this function
         GLint previousFramebuffer, previousViewport[4];
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousFramebuffer);
         glGetIntegerv(GL_VIEWPORT, previousViewport);
+        
+        // bind the shadow map framebuffer
         m_sunShadowMap.bindForDrawing();
+        // clear everything (so just the depth because shadowmap)
         glClear(GL_DEPTH_BUFFER_BIT);
+        
+        // bind the shader for drawing the shadowmap
         m_shadowShader.bind();
         const GLint matrixLocation = m_shadowShader.getUniformLocation("mvpMatrix");
 
-        // use the same current object transforms as the camera pass. Only the
-        // exhibit objects cast shadows; the sky and debug light marker do not.
+        // draw the depth of the scene from the perspective of the light camera into the shadowmap texture
         for (const SceneObject& object : m_sceneObjects) {
             const glm::mat4 lightMvp = m_sunViewProjectionMatrix * object.modelMatrix;
             glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(lightMvp));
@@ -270,7 +279,7 @@ private:
 
     void renderScene()
     {
-        // enable depth testing before the light pass so each texel keeps the nearest surface.
+        // enable depth testing before the shadowmap pass
         glEnable(GL_DEPTH_TEST);
         renderSunShadowMap();
 

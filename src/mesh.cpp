@@ -167,9 +167,9 @@ void GPUMesh::draw(const Shader& drawingShader) const
     drawGeometry();
 }
 
+// we have this separate for when we just want to draw the models without any metrial / texture stuff, for example for shadows
 void GPUMesh::drawGeometry() const
 {
-    // Draw the mesh's triangles
     glBindVertexArray(m_vao);
     glDrawElements(GL_TRIANGLES, m_numIndices, GL_UNSIGNED_INT, nullptr);
 }
