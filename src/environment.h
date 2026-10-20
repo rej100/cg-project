@@ -5,8 +5,8 @@
 #include <framework/shader.h>
 #include <glm/mat4x4.hpp>
 
-// One distant environment is shared by the sky background and every object's
-// reflections. Its cubemap is indexed by world-space direction, not position.
+// one environemnt for the background and reflections. we treat it as being infinitely distant.
+// the cubemap is sampled with world space direction
 class Environment {
 public:
     // Call once after creating the OpenGL context. The cubemap and cube buffers
