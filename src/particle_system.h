@@ -31,8 +31,8 @@ private:
         float opacity;
     };
 
-    static const std::size_t MAX_PARTICLES = 128;
-    static const float EMISSION_RATE = 40.0f; // particles per second
+    static constexpr std::size_t MAX_PARTICLES = 128;
+    static constexpr float EMISSION_RATE = 40.0f; // particles per second
 
     void spawnParticle();
     float randomFloat(float minimum, float maximum);

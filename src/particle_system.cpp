@@ -21,16 +21,20 @@ void ParticleSystem::initialize(const glm::vec3& emitterPosition)
     glGenBuffers(1, &m_vbo);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    
+   
+    // a particle is basically a small 2d square in the world. the position of each ParticleVertex is the center of that square
     glBufferData(GL_ARRAY_BUFFER,
         static_cast<GLsizeiptr>(MAX_PARTICLES * sizeof(ParticleVertex)), nullptr, GL_STREAM_DRAW);
 
+    // 3 floats for position
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex),
         reinterpret_cast<const void*>(offsetof(ParticleVertex, position)));
+    // 1 float for size
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex),
         reinterpret_cast<const void*>(offsetof(ParticleVertex, size)));
+    // 1 float for opacity
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex),
         reinterpret_cast<const void*>(offsetof(ParticleVertex, opacity)));
@@ -39,9 +43,11 @@ void ParticleSystem::initialize(const glm::vec3& emitterPosition)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
+// update the age and position for each particle and spawn new particles
 void ParticleSystem::update(float deltaTime)
 {
     for (Particle& particle : m_particles) {
+        // if the particle age is more than equal to the lifetime than that particle is dead
         if (particle.age >= particle.lifetime)
             continue;
 
@@ -49,30 +55,37 @@ void ParticleSystem::update(float deltaTime)
         particle.position += particle.velocity * deltaTime;
     }
 
-    // keep the fractional part, so emission is measured per second rather than per frame
+    // we want EMISSION_RAFE particles per second so we store how many particles we need to spawn since
+    // the last update call in m_emissionAccumulator
     m_emissionAccumulator += EMISSION_RATE * deltaTime;
+    // spawn the particles
     while (m_emissionAccumulator >= 1.0f) {
         m_emissionAccumulator -= 1.0f;
         spawnParticle();
     }
 }
 
+// the emitter is a horizontal disk so we need a random position on that disk to put a new particle in
+// also make the lifetime and size and direction slightly random for the look
 void ParticleSystem::spawnParticle()
 {
     for (Particle& particle : m_particles) {
+        // we are looking for a dead particle in the array to replace with our new one
         if (particle.age < particle.lifetime)
             continue;
 
+        // for a random position on the disk we need a random distance from the center (radius) and random angle
         const float angle = randomFloat(0.0f, glm::two_pi<float>());
-        // sqrt distributes births uniformly over the area of the emitter disk
+        // use sqrt because otherwise there will be more particles near the center
         const float radius = 0.18f * std::sqrt(randomFloat(0.0f, 1.0f));
+
+        // upwards and slightly to the sides
         particle.velocity = glm::vec3(
             randomFloat(-0.12f, 0.12f), randomFloat(0.44f, 0.88f), randomFloat(-0.12f, 0.12f));
         particle.age = 0.0f;
         particle.lifetime = randomFloat(1.5f, 2.5f);
         particle.size = randomFloat(0.044f, 0.09f);
-        particle.position = m_emitterPosition
-            + glm::vec3(radius * std::cos(angle), 0.0f, radius * std::sin(angle));
+        particle.position = m_emitterPosition + glm::vec3(radius * std::cos(angle), 0.0f, radius * std::sin(angle));
         return;
     }
 }
@@ -83,14 +96,17 @@ float ParticleSystem::randomFloat(float minimum, float maximum)
     return distribution(m_randomGenerator);
 }
 
+// for each alive particle we calculate the opacity and put it into m_vertices. then we draw the particles in m_vertices
 void ParticleSystem::draw(const glm::mat4& viewMatrix, const glm::mat4& projectionMatrix, int framebufferHeight)
 {
     m_vertices.clear();
+
     for (const Particle& particle : m_particles) {
+        // if dead skip
         if (particle.age >= particle.lifetime)
             continue;
 
-        // fade in briefly at birth, then fade away over the particle's lifetime
+        // we want the particle to start invisible, fade in quickly, and then fade out during the rest of its life
         const float fadeIn = std::min(particle.age / 0.12f, 1.0f);
         const float opacity = fadeIn * (1.0f - particle.age / particle.lifetime);
         m_vertices.push_back({ particle.position, particle.size, opacity });
@@ -108,7 +124,8 @@ void ParticleSystem::draw(const glm::mat4& viewMatrix, const glm::mat4& projecti
     glUniformMatrix4fv(m_shader.getUniformLocation("projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projectionMatrix));
     glUniform1f(m_shader.getUniformLocation("framebufferHeight"), static_cast<float>(framebufferHeight));
 
-    // keep the opaque scene's depth test, but do not let a soft dot write depth
+    // we want depth test enabled so things can cover the particles but we dont want to write depth
+    // because the particles shouldnt cover things for rendering. we just add them on top and blend
     glDepthMask(GL_FALSE);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);

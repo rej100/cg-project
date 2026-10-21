@@ -100,7 +100,7 @@ public:
         m_sunShadowMap.initialize(SUN_SHADOW_RESOLUTION);
         m_spotlightShadowMap.initialize(SPOTLIGHT_SHADOW_RESOLUTION);
 
-        // the reactor's top rim ends at local y=3.5; emit just above its aperture
+        // put the emitter at the top of the core on top of the reactor (y 3.5)
         m_particleSystem.initialize(glm::vec3(0.0f, PLATFORM_HEIGHT + 3.52f, 0.0f));
     }
 
@@ -114,20 +114,12 @@ public:
             previousTime = currentTime;
 
             const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
-            if (m_window.isMinimized() || framebufferSize.x <= 0 || framebufferSize.y <= 0) {
-                ImGui::EndFrame();
-                glfwWaitEventsTimeout(0.1);
-                // time spent minimized should not become a simulation jump on return
-                previousTime = glfwGetTime();
-                continue;
-            }
 
             glViewport(0, 0, framebufferSize.x, framebufferSize.y);
             drawUi();
             if (m_enableParticles)
                 m_particleSystem.update(deltaTime);
 
-            // Read the camera after UI presets have been applied, so they affect this frame.
             const float aspectRatio = static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y);
             m_viewMatrix = m_camera.viewMatrix();
             m_projectionMatrix = glm::perspective(glm::radians(CAMERA_FOV_DEGREES), aspectRatio, 0.1f, 150.0f);
@@ -372,7 +364,6 @@ private:
         if (m_showLightMarker)
             drawSpotlightMarker();
 
-        // draw luminous particles last, using the depth already written by the scene
         if (m_enableParticles)
             m_particleSystem.draw(m_viewMatrix, m_projectionMatrix, framebufferHeight);
     }
