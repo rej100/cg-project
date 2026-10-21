@@ -64,6 +64,7 @@ The application opens **Reactor Inspection** and loads these model assets:
 | `assets/models/reactor.obj` | 3.5 m tall; 61,820 triangles in six material groups. | Translated by `(0, 0.38, 0)` to sit on the platform. |
 | `assets/models/drone_body.obj` | Textured drone body. | Root translation `(0, 4.38, 4)` and uniform scale 4. |
 | `assets/models/L_F_propeller.obj`, `R_F_propeller.obj`, `L_B_propeller.obj`, `R_B_propeller.obj` | Four separately loaded propeller models. | Drone root transform composed with each propeller's local offset. |
+| `assets/models/showcase_model.obj` | 1 m polished chrome sphere on a 1.99 m ceramic/gold pedestal; 31,844 triangles in four constant-color material groups. | Translated by `(3.2, 0.38, 1.5)` to stand on the platform beside the reactor. |
 | `assets/models/placeholder.obj` | Orange box/arrow spotlight marker; 30 triangles in one material group. | Its box center follows the spotlight position, with its arrow aligned to the light's aim. |
 
 The drone is a static assembly contributed through the partner's drone branch.
@@ -98,6 +99,7 @@ mouse wheel zooms.
 | | **Reactor** | Frame the reactor more closely. |
 | | **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
 | | **Platform logo** | Frame the logo near the platform's front rim. |
+| | **Reflection showcase** | Frame the polished chrome sphere beside the reactor. |
 | **Advanced shading: PBR** | **Shading** | Select **PBR** (default) or **Base color**. |
 | **Material textures** | **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
 | **Normal mapping** | **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
@@ -206,10 +208,12 @@ continues to supply diffuse fill. Reflections contain this distant panorama,
 not the reactor or drone; the cubemap is bound once per frame on texture unit 3
 (base color, roughness, and normal maps occupy units 0, 1, and 2).
 
-To inspect the effect, choose **PBR**, use the **Reactor** camera, orbit around
-the curved gold rings/collar, and toggle **Environment reflections**.
-The reflected sky shifts across the gold while the background and direct
-lighting stay visible. **Base color** does not add environment reflections.
+To inspect the effect, choose **PBR**, use the **Reflection showcase** camera,
+and toggle **Environment reflections**: the polished chrome sphere (metallic 1,
+roughness 0.05) mirrors recognizable panorama features, including the bright sun
+disk, and the reflections slide across it while orbiting. The gold rings and
+collar show a rougher, tinted variation of the same effect. **Base color** does
+not add environment reflections.
 Both the sky and scene shaders convert linear RGB to sRGB for the current SDR
 output, so values above 1 still clip on display; the
 floating-point environment data is retained for the planned HDR/bloom pipeline.
@@ -227,7 +231,8 @@ Before the camera pass, the scene is drawn into that depth texture using the
 existing `shadow_vert.glsl` / `shadow_frag.glsl` program. Each object supplies
 `sunProjection * sunView * modelMatrix`; `GPUMesh::drawGeometry()` draws the
 indexed geometry without material bindings. The platform, reactor, drone body,
-and propellers cast shadows. The debug light marker is excluded from this pass.
+propellers, and reflection showcase cast shadows. The debug light marker is
+excluded from this pass.
 The scene framebuffer and viewport are explicitly restored afterward.
 
 The light camera looks toward `(0, 2, 0)` from 20 m along the direction to the

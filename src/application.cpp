@@ -43,6 +43,7 @@ public:
         m_l_f_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/L_F_propeller.obj");
         m_r_b_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_B_propeller.obj");
         m_r_f_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_F_propeller.obj");
+        m_showcaseModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/showcase_model.obj");
 
         SceneObject platformObject {};
         platformObject.model = &m_platformModel;
@@ -84,6 +85,14 @@ public:
         rightBackPropellerObject.model = &m_r_b_propeller;
         rightBackPropellerObject.modelMatrix = glm::translate(m_droneBodyMatrix, m_r_b_propellerOffset);
         m_sceneObjects.push_back(rightBackPropellerObject);
+
+        // the polished chrome sphere beside the reactor shows environment reflections clearly
+        SceneObject showcaseObject {};
+        showcaseObject.model = &m_showcaseModel;
+        showcaseObject.modelMatrix = glm::translate(
+            glm::mat4(1.0f),
+            glm::vec3(3.2f, PLATFORM_HEIGHT, 1.5f));
+        m_sceneObjects.push_back(showcaseObject);
 
         m_spotlightMarkerModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/placeholder.obj");
         m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
@@ -165,6 +174,12 @@ private:
             glm::radians(glm::vec3(55.0f, 180.0f, 0.0f)), 2.8f);
     }
 
+    void setReflectionShowcaseCamera()
+    {
+        m_camera.setCamera(glm::vec3(3.2f, PLATFORM_HEIGHT + 1.1f, 1.5f),
+            glm::radians(glm::vec3(15.0f, 170.0f, 0.0f)), 2.6f);
+    }
+
     void drawUi()
     {
         ImGui::Begin("Scene controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
@@ -180,6 +195,8 @@ private:
             ImGui::SameLine();
             if (ImGui::Button("Platform logo"))
                 setPlatformLogoCamera();
+            if (ImGui::Button("Environment mapping"))
+                setReflectionShowcaseCamera();
         }
 
         if (ImGui::CollapsingHeader("Advanced shading: PBR", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -432,6 +449,7 @@ private:
     Model m_l_f_propeller;
     Model m_r_b_propeller;
     Model m_r_f_propeller;
+    Model m_showcaseModel;
     glm::mat4 m_droneBodyMatrix { 1.0f };
     // Propeller positions relative to the drone body:
     glm::vec3 m_l_f_propellerOffset { -0.1074f, -0.0204f, -0.0957f };
