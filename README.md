@@ -109,6 +109,7 @@ mouse wheel zooms.
 | | **Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
 | | **Emission** | Toggle the core's self-luminous contribution in **PBR** mode. |
 | | **Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
+| **Particle effects** | **Particles** | Show and animate the cyan motes above the reactor; enabled by default. Turning it off hides and pauses the particles. |
 | **UI settings** | **Display scale / UI scale** | Show the detected display scale and adjust the UI size. |
 
 **PBR** adds directional sunlight, spotlight illumination, environment
@@ -339,10 +340,12 @@ The main rendering responsibilities are:
 | `framework/src/image.cpp` | Load 8-bit material images and linear float HDR panoramas. |
 | `src/environment.cpp` | Convert the panorama into a cubemap, generate reflection mipmaps, own the cube resources, and draw the sky background. |
 | `src/shadow_map.cpp` | Allocate a depth texture/framebuffer and bind it for shadow rendering or sampling. |
+| `src/particle_system.cpp` | Emit and update a fixed CPU particle pool, upload living particles, and draw additive point sprites. |
 | `src/mesh.cpp` | Own GPU geometry/material resources, bind material textures for normal drawing, and provide geometry-only drawing for depth passes. |
-| `src/application.cpp` | Own models, instances, lights, environment, and both shadow maps; render each light's depth before the camera view, coordinate camera/UI and shared settings, and draw the light marker. |
+| `src/application.cpp` | Own models, instances, lights, environment, shadow maps, and particles; measure frame time, coordinate camera/UI and shared settings, and draw shadow, scene, marker, and particle passes. |
 | `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply each light's visibility, ambient fill, emission, direct lights, and PBR environment reflections. |
 | `shaders/shadow_{vert,frag}.glsl` | Project geometry from the light's viewpoint and let the depth test store the nearest surface. |
+| `shaders/particle_{vert,frag}.glsl` | Project particle centres, calculate pixel diameters, and shade soft cyan disks with lifetime opacity. |
 | `shaders/skybox_vert.glsl`, `environment_convert_frag.glsl`, `skybox_frag.glsl` | Share the direction-supplying cube vertex shader between panorama conversion and sky rendering. |
 
 The loaded models are stable `Application` members. Scene objects
@@ -353,6 +356,59 @@ inverse-transpose normal matrix before drawing the model's material groups.
 Emission follows `MTL Ke` → CPU `Material::emission` → `GPUMaterial` uniform
 buffer → the fragment shader's `Material` block. It is added in linear RGB
 before the final sRGB conversion.
+
+### Particle effects
+
+Small cyan energy motes rise from the reactor's upper aperture. The emitter is
+a horizontal disk of radius 0.18 m, centred at world position `(0, 3.90, 0)`:
+the reactor's local top is 3.5 m, the platform adds 0.38 m, and the emitter
+starts 0.02 m above the rim. This places births outside the opaque housing.
+
+`ParticleSystem::initialize()` creates the point shaders, one VAO, and a streaming
+vertex buffer for a fixed pool of 128 particles. GPU buffers remain allocated
+until context destruction, following the other explicitly initialized helpers.
+No particle model or texture asset is required.
+
+The CPU emits 40 particles per second. Each birth chooses a position uniformly
+over the emitter disk, an upward velocity of 0.45–0.85 m/s, horizontal velocity
+components of −0.12 to +0.12 m/s, a lifetime of 1.5–2.5 s, and a world-space
+diameter of 0.045–0.09 m. A fixed random seed makes the sequence repeatable.
+Expired slots are reused. Every update advances `age += deltaTime` and
+`position += velocity * deltaTime`. Fractional births accumulate between frames;
+new particles start at age zero at their spawn positions and begin moving on
+the next update. Both movement and emission use elapsed seconds rather than a
+fixed amount per frame.
+
+Drawing packs only living particles' positions, diameters, and opacity into the
+vertex buffer, then makes one `glDrawArrays(GL_POINTS, ...)` call. Opacity fades
+in over 0.12 s and decreases toward zero at the end of each lifetime. The vertex
+shader converts the diameter to pixels using camera-space depth, the vertical
+projection scale, and the actual framebuffer height. OpenGL applies its native
+point-size limits. The fragment shader uses
+`gl_PointCoord` to make a soft circular mask inside each point's square.
+
+Particles are drawn after the opaque scene and light marker. Depth testing
+keeps them behind scene geometry, while depth writes are disabled so one soft
+dot does not block another. Additive blending (`GL_SRC_ALPHA`, `GL_ONE`) adds
+each dot's opacity-weighted cyan colour; no depth sorting is needed. The pass
+ends by enabling depth writes and disabling blending and shader-controlled
+point size. Subsequent renderers bind their own shaders and buffers, so the
+particle pass does not query or restore previous bindings or blend parameters.
+
+The effect is independent of shading mode, lighting, material emission, and
+environment reflections. The **Particle effects → Particles** checkbox hides
+and pauses it when off; re-enabling resumes the current particles. Simulation
+also pauses while minimized, with the frame clock refreshed to avoid a jump on
+return. The motes appear self-luminous but do not light nearby surfaces or cast
+shadows. Current addition happens in the sRGB-encoded SDR target, so it is a
+display-space approximation; the planned HDR/bloom pipeline can provide
+linear-light blending and a surrounding halo later.
+
+To inspect the result, use **Scene overview**, wait a few seconds for the stream
+to fill, and look above the reactor's top opening. Orbit or zoom to inspect its
+depth and toggle **Particles** to compare the scene with and without the effect.
+References: [OpenGL point size](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glPointSize.xhtml)
+and [blending](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml).
 
 ### Window size and UI scaling
 
@@ -425,9 +481,9 @@ than a list of features already implemented.
   illuminate the scene from different angles. Both cast shadows. Balance them
   so the spotlight makes a visible contribution while the overall scene stays
   bright.
-- **Energy effects:** a small stream of cyan particles rises through and just
-  above the reactor core. The dark inner recess provides contrast. Bloom gives
-  the core, lamp face, and selected particles a restrained halo.
+- **Energy effects:** a small stream of cyan particles rises from the reactor's
+  upper aperture. Bloom gives the core, lamp face, and selected particles a
+  restrained halo.
 
 The drone route has four cubic Bézier segments with smooth joins, including the
 closing join. Its heading follows the route. A chosen pause position places the
@@ -464,11 +520,12 @@ with appropriate rotation pivots.
 | Drone sensor | Turning mount, tilting head, and dark lens | Separate mount and head meshes; code constructs body → turning mount → tilting head, with the lens included in the head mesh. |
 | Showcase lamp | Mast, overhead arm, lamp housing, luminous face | Authored static mesh; the spotlight created in code matches the fixture's position and direction. |
 | Sky background | Camera-centered cube | Small code-generated rendering helper that samples the environment cubemap. |
-| Energy particles | Reusable camera-facing quad | Code-generated rendering helper; particle instances have position, velocity, age, size, and opacity. |
+| Energy particles | One point-sprite vertex per living particle | CPU particles have position, velocity, age, lifetime, and size; the shader generates a soft circular mask and applies lifetime opacity. |
 | Path visualization | Sampled line along the four Bézier segments | Generated from the actual flight path; UI-controlled visibility. |
 
-The ground plane, skybox cube, particle quads, and path lines are simple rendering
-helpers generated in code. The exhibit and drone geometry come from asset files.
+The ground plane, skybox cube, particle vertices, and path lines are simple
+rendering helpers generated in code. The exhibit and drone geometry come from
+asset files.
 
 #### Model exports and editable source files
 
@@ -524,7 +581,6 @@ emissive surfaces can use constant material parameters instead of extra images.
 | `assets/textures/drone_basecolor.png` | White shell, colored identification markings, and small labels. |
 | `assets/textures/drone_roughness.png` | Surface-finish variation across the shell and trim regions. |
 | `assets/textures/drone_normal.png` | Panel seams and small manufactured details. |
-| `assets/textures/particle_soft.png` | Soft particle sprite with an alpha falloff; tinted cyan during rendering. |
 | `assets/environment/qwantani_noon_puresky_2k.hdr` | Poly Haven daylight panorama (CC0), converted to a cubemap for the background and reflections. |
 | `assets/README.md` | Asset inventory, authorship, source links, licenses, and modifications, including our own generated assets. |
 
@@ -586,7 +642,7 @@ the blue logo remains visible as a flat printed design.
 - **Shadow rendering:** one depth map per light, with an orthographic projection
   for the sun and a perspective projection for the spotlight. Update both while
   the drone moves; share the depth-rendering code between the lights.
-- **Effect rendering:** particle billboards, a path-line renderer, and an HDR
+- **Effect rendering:** particle point sprites, a path-line renderer, and an HDR
   scene target followed by bright-region extraction, blur, and bloom composition.
 - **Runtime-generated data:** rendering-helper meshes, tangent data for imported
   meshes, path samples, the cumulative distance lookup table for constant-speed
@@ -612,7 +668,7 @@ the blue logo remains visible as a flat printed design.
 | --- | --- | --- |
 | Constant-speed Bézier movement | The drone maintains approximately constant world-space speed across the complete route using a sampled cumulative-distance lookup table. | Switch between uniform parameter stepping and constant-distance stepping, with the same overall lap duration. Show a speed readout and use a route with visibly different segment shapes. |
 | Shadows from multiple light sources | Both the sun and showcase spotlight cast reactor and drone shadows onto nearby surfaces. Different light directions separate their shadows. | Provide independent light and shadow toggles for each source. Pause the drone in the spotlight beam, demonstrate each source alone, then both together. Each shadow attenuates only its own light's contribution. |
-| Particle effects | Energy motes rise, drift, and fade around the cyan core, mostly against the dark recess. | Toggle particles independently of bloom. Their animation uses elapsed time so emission and lifetimes do not depend on rendering framerate. |
+| Particle effects | Energy motes rise, drift, and fade above the reactor's upper aperture. | Toggle particles independently of bloom. Their animation uses elapsed time so emission and lifetimes do not depend on rendering framerate. |
 | Post-processing: bloom | Bright core, lamp face, and selected particles have a soft halo without washing out the white housing. | Toggle bloom at fixed exposure and camera position. The emissive surfaces stay bright with bloom off, while the surrounding halo disappears. |
 
 All features run together in the same application. The UI also provides a global

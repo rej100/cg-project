@@ -3,6 +3,7 @@
 #include "environment.h"
 #include "light.h"
 #include "model.h"
+#include "particle_system.h"
 #include "shadow_map.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -98,29 +99,40 @@ public:
         m_shadowShader = shadowBuilder.build();
         m_sunShadowMap.initialize(SUN_SHADOW_RESOLUTION);
         m_spotlightShadowMap.initialize(SPOTLIGHT_SHADOW_RESOLUTION);
+
+        // the reactor's top rim ends at local y=3.5; emit just above its aperture
+        m_particleSystem.initialize(glm::vec3(0.0f, PLATFORM_HEIGHT + 3.52f, 0.0f));
     }
 
     void update()
     {
+        double previousTime = glfwGetTime();
         while (!m_window.shouldClose()) {
             m_window.updateInput();
+            const double currentTime = glfwGetTime();
+            const float deltaTime = static_cast<float>(currentTime - previousTime);
+            previousTime = currentTime;
 
             const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
             if (m_window.isMinimized() || framebufferSize.x <= 0 || framebufferSize.y <= 0) {
                 ImGui::EndFrame();
                 glfwWaitEventsTimeout(0.1);
+                // time spent minimized should not become a simulation jump on return
+                previousTime = glfwGetTime();
                 continue;
             }
 
             glViewport(0, 0, framebufferSize.x, framebufferSize.y);
             drawUi();
+            if (m_enableParticles)
+                m_particleSystem.update(deltaTime);
 
             // Read the camera after UI presets have been applied, so they affect this frame.
             const float aspectRatio = static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y);
             m_viewMatrix = m_camera.viewMatrix();
             m_projectionMatrix = glm::perspective(glm::radians(CAMERA_FOV_DEGREES), aspectRatio, 0.1f, 150.0f);
 
-            renderScene();
+            renderScene(framebufferSize.y);
             m_window.swapBuffers();
         }
     }
@@ -195,6 +207,9 @@ private:
 
         if (ImGui::CollapsingHeader("Shadows from multiple light sources", ImGuiTreeNodeFlags_DefaultOpen))
             drawLightingUi();
+
+        if (ImGui::CollapsingHeader("Particle effects", ImGuiTreeNodeFlags_DefaultOpen))
+            ImGui::Checkbox("Particles", &m_enableParticles);
 
         if (ImGui::CollapsingHeader("UI settings", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
@@ -307,7 +322,7 @@ private:
         glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
     }
 
-    void renderScene()
+    void renderScene(int framebufferHeight)
     {
         // enable depth testing before the shadowmap passes
         glEnable(GL_DEPTH_TEST);
@@ -356,6 +371,10 @@ private:
 
         if (m_showLightMarker)
             drawSpotlightMarker();
+
+        // draw luminous particles last, using the depth already written by the scene
+        if (m_enableParticles)
+            m_particleSystem.draw(m_viewMatrix, m_projectionMatrix, framebufferHeight);
     }
 
     void uploadLightUniforms()
@@ -407,6 +426,7 @@ private:
     Window m_window;
     Trackball m_camera;
     Environment m_environment;
+    ParticleSystem m_particleSystem;
     ShadowMap m_sunShadowMap;
     ShadowMap m_spotlightShadowMap;
 
@@ -439,6 +459,7 @@ private:
     bool m_enableEnvironmentReflections { true };
     bool m_enableSunShadows { true };
     bool m_enableSpotlightShadows { true };
+    bool m_enableParticles { true };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };
