@@ -255,6 +255,70 @@ use the exported PNGs with identical camera and lighting. The model and textures
 were created for this project in Blender; the logo artwork is credited to TU Delft
 and comes from the user-provided SVG.
 
+## Reflection showcase
+
+![Reflection showcase](previews/showcase_model.png)
+
+A smooth, 1 m diameter polished-metal sphere on a tapered white ceramic
+pedestal with gold trim and a small graphite socket. It is designed as a clear
+environment-reflection example beside the reactor, using the existing PBR
+shader and OBJ/MTL material pipeline.
+
+The complete asset measures **1 × 1 × 1.99 m**. The pedestal base is 0.932 m
+across, and the sphere's centre is 1.49 m above the ground-centred origin.
+
+### Files
+
+| File | Purpose |
+| --- | --- |
+| `source/showcase_model.blend` | Editable sphere and eight pedestal/seat components, retained bevel modifiers, preview camera, studio lights, floor, and the existing daylight HDRI. |
+| `models/showcase_model.obj` / `models/showcase_model.mtl` | Triangulated export: 31,844 triangles, nine component meshes, four materials, UVs, and preserved normals. |
+| `previews/showcase_model.png` | 900 × 1100 Cycles preview. |
+
+### Materials
+
+All RGB constants are linear, and all materials have zero emission. No material
+textures or normal maps are needed. The sphere uses smooth normals and a low
+roughness to keep environment detail sharp; its neutral metal colour preserves
+the reflected panorama's colours.
+
+| Material | Base colour | Metallic | Roughness |
+| --- | --- | --- | --- |
+| `showcase_chrome` | `(0.6, 0.6, 0.6)` | 1 | 0.05 |
+| `ceramic` | `(0.78, 0.81, 0.84)` | 0 | 0.25 |
+| `gold` | `(0.83, 0.57, 0.23)` | 1 | 0.21 |
+| `graphite` | `(0.018, 0.028, 0.040)` | 0.65 | 0.30 |
+
+### Coordinates and export
+
+- **`Reflection Showcase | EXPORT`** contains only the nine asset meshes. Each
+  has identity object transforms and shares the bottom-centre origin, so the
+  assembly can be placed with one application model matrix.
+- The sphere is a smooth-shaded 128-segment, 64-ring UV sphere. The pedestal
+  retains editable bevel and weighted-normal modifiers in the source file.
+- **`Studio | PREVIEW ONLY`** contains the camera, three softboxes, and floor.
+  These are excluded from the OBJ. The source opens in a material-preview view
+  with the sphere selected.
+- Blender uses **Z up** and metres. Export selected asset meshes with **Y up**,
+  **−Z forward**, scale 1, applied modifiers, triangulation, UVs, normals, and
+  PBR material extensions enabled. Exported bounds are approximately
+  X/Z `[-0.5, 0.5]`, Y `[0, 1.99]`.
+- Place it on the platform with an application translation of `(x, 0.38, z)`;
+  its whole assembly is already positioned relative to the ground-centred origin.
+
+### Preview and verification
+
+The preview uses the bundled Qwantani Noon HDRI, additional studio softboxes,
+and a neutral floor. Cycles also reflects nearby geometry; the application's
+current environment mapping reflects only the distant HDR panorama. The
+preview studio is a modelling aid rather than part of the exported asset.
+
+All nine evaluated source components were checked for closed/manifold geometry.
+The exported OBJ was re-imported to verify the triangle count, UVs, material
+assignments, scale, and axes. It contains no non-triangular faces, non-manifold
+edges, loose vertices, or degenerate faces. Geometry and constant materials were
+created for this project in Blender; the existing HDRI's attribution is above.
+
 ## Drone
 
 A static drone assembly supplied through the partner's `drone` branch and
