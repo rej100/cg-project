@@ -127,10 +127,12 @@ void ParticleSystem::draw(const glm::mat4& viewMatrix, const glm::mat4& projecti
     // we want depth test enabled so things can cover the particles but we dont want to write depth
     // because the particles shouldnt cover things for rendering. we just add them on top and blend
     glDepthMask(GL_FALSE);
+    // make it so that for particles the gl_PointSize from the vertex shader is used for the size of the particle
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendEquation(GL_FUNC_ADD);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    // gl points
     glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(m_vertices.size()));
 
     // return to the settings used by normal scene rendering

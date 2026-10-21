@@ -15,10 +15,15 @@ void main()
     vec4 viewPosition = viewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * viewPosition;
 
-    // projection[1][1] scales vertical distances; half the framebuffer height
-    // converts NDC distances to pixels. Dividing by depth gives perspective size.
+    // size is in meters and we need to convert it to pixels
+    // how far away from the camera is the particle
     float depth = max(-viewPosition.z, 0.001);
-    float diameterPixels = size * projectionMatrix[1][1] * framebufferHeight * 0.5 / depth;
+
+    // convert from meters to ndc and scale by depth (smaller when further away)
+    float diameterNDC = size * projectionMatrix[1][1] / depth;
+    // convert from ndc to pixels
+    float diameterPixels = diameterNDC * framebufferHeight * 0.5;
+
     gl_PointSize = diameterPixels;
     particleOpacity = opacity;
 }
