@@ -15,6 +15,7 @@ add_executable(Master_TechDemo
 	"src/environment.cpp"
 	"src/shadow_map.cpp"
 	"src/particle_system.cpp"
+	"src/flight_path.cpp"
 	"src/mesh.cpp"
 )
 

@@ -225,7 +225,12 @@ float Window::getUiScale() const
 
 void Window::applyUiScale()
 {
+    #if defined(__APPLE__)
+    const float scale = m_uiScale;
+    #else
     const float scale = m_dpiScalingFactor * m_uiScale;
+
+    #endif
     // Reset before scaling so repeated adjustments do not accumulate rounding errors.
     ImGui::GetStyle() = m_unscaledStyle;
     ImGui::GetStyle().ScaleAllSizes(scale);

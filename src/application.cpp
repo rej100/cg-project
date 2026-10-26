@@ -1,6 +1,7 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
 #include "environment.h"
+#include "flight_path.h"
 #include "light.h"
 #include "model.h"
 #include "particle_system.h"
@@ -11,6 +12,7 @@ DISABLE_WARNINGS_PUSH()
 // Include glad before glfw3
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -19,6 +21,7 @@ DISABLE_WARNINGS_PUSH()
 DISABLE_WARNINGS_POP()
 #include <framework/shader.h>
 #include <framework/trackball.h>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -56,15 +59,17 @@ public:
             glm::vec3(0.0f, PLATFORM_HEIGHT, 0.0f));
         m_sceneObjects.push_back(reactorObject);
 
-        m_droneBodyMatrix = glm::translate(
-            glm::mat4(1.0f),
-            glm::vec3(0.0f, PLATFORM_HEIGHT + 4.0f, 4.0f));
-        m_droneBodyMatrix = glm::scale(m_droneBodyMatrix, glm::vec3(4.0f));
+        // see flight_path for exact joint coords
+        m_flightPath.initialize();
+        updateDroneMatrix();
 
+        m_droneBodyIndex = m_sceneObjects.size();
         SceneObject droneBodyObject {};
         droneBodyObject.model = &m_drone_bodyModel;
         droneBodyObject.modelMatrix = m_droneBodyMatrix;
         m_sceneObjects.push_back(droneBodyObject);
+
+        m_firstPropellerIndex = m_sceneObjects.size();
 
         SceneObject leftFrontPropellerObject {};
         leftFrontPropellerObject.model = &m_l_f_propeller;
@@ -129,8 +134,19 @@ public:
             if (m_enableParticles)
                 m_particleSystem.update(deltaTime);
 
+            // distance along the path = previous distance + speed * time since last frame (dt)
+            if (m_flyDrone)
+                m_droneDistance = std::fmod(m_droneDistance + DRONE_SPEED * deltaTime, m_flightPath.length());
+            updateDroneMatrix();
+            m_sceneObjects[m_droneBodyIndex].modelMatrix = m_droneBodyMatrix;
+
+            // propller angle = old angle + speed * dt
+            m_propellerAngle = std::fmod(m_propellerAngle + PROPELLER_SPEED * deltaTime, glm::two_pi<float>());
+            updatePropellerMatrices();
+
             const float aspectRatio = static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y);
-            m_viewMatrix = m_camera.viewMatrix();
+            m_viewMatrix = cameraViewMatrix();
+            m_cameraPosition = glm::vec3(glm::inverse(m_viewMatrix)[3]);
             m_projectionMatrix = glm::perspective(glm::radians(CAMERA_FOV_DEGREES), aspectRatio, 0.1f, 150.0f);
 
             renderScene(framebufferSize.y);
@@ -140,6 +156,9 @@ public:
 
 private:
     static constexpr float CAMERA_FOV_DEGREES = 45.0f;
+    static constexpr float PROPELLER_SPEED = 30.0f;
+    static constexpr float DRONE_SPEED = 2.0f;
+    static constexpr float DRONE_SCALE = 4.0f;
     static constexpr float PLATFORM_HEIGHT = 0.38f;
     static constexpr int SUN_SHADOW_RESOLUTION = 2048;
     static constexpr int SPOTLIGHT_SHADOW_RESOLUTION = 2048;
@@ -148,6 +167,64 @@ private:
         Pbr,
         BaseColor
     };
+
+    enum class CameraMode {
+        Overview,
+        Follow,  
+        Top
+    };
+
+    void updateDroneMatrix()
+    {
+        const float u = m_flightPath.parameterAtDistance(m_droneDistance);
+        m_dronePosition = m_flightPath.position(u);
+        m_droneForward = glm::normalize(m_flightPath.tangent(u));
+        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+        const glm::vec3 right = glm::normalize(glm::cross(m_droneForward, worldUp));
+        m_droneUp = glm::cross(right, m_droneForward);
+
+        // matrix columns are where the model's 3 axes end up
+        // the front propellers are at -Z so the model -Z becomes forward
+        const glm::mat4 orientation(
+            glm::vec4(right, 0.0f),
+            glm::vec4(m_droneUp, 0.0f),
+            glm::vec4(-m_droneForward, 0.0f),
+            glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+        m_droneBodyMatrix = glm::translate(glm::mat4(1.0f), m_dronePosition) * orientation
+            * glm::scale(glm::mat4(1.0f), glm::vec3(DRONE_SCALE));
+    }
+
+    glm::mat4 cameraViewMatrix() const
+    {
+        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+        switch (m_cameraMode) {
+        case CameraMode::Follow: {
+            const glm::vec3 eye = m_dronePosition - 3.0f * m_droneForward + 1.2f * m_droneUp;
+            return glm::lookAt(eye, m_dronePosition, worldUp);
+        }
+        case CameraMode::Top:
+            return glm::lookAt(glm::vec3(0.0f, 20.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+        case CameraMode::Overview:
+        default:
+            return m_camera.viewMatrix();
+        }
+    }
+
+    void updatePropellerMatrices()
+    {
+        // first body then offset and last spin around propellers own Y axis
+        const glm::vec3 offsets[] = { m_l_f_propellerOffset, m_r_f_propellerOffset, m_l_b_propellerOffset, m_r_b_propellerOffset };
+        for (size_t i = 0; i < 4; ++i) {
+            glm::mat4 matrix = glm::translate(m_droneBodyMatrix, offsets[i]);
+            float angle = m_propellerAngle;
+            if (i==1 || i==2){
+                angle = -m_propellerAngle;
+            }
+            matrix = glm::rotate(matrix, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+            m_sceneObjects[m_firstPropellerIndex + i].modelMatrix = matrix;
+        }
+    }
 
     void setOverviewCamera()
     {
@@ -185,18 +262,38 @@ private:
         ImGui::Begin("Scene controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         if (ImGui::CollapsingHeader("Multiple viewpoints", ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (ImGui::Button("Scene overview"))
+            if (ImGui::Button("Scene overview")) {
                 setOverviewCamera();
+                m_cameraMode = CameraMode::Overview;
+            }
             ImGui::SameLine();
-            if (ImGui::Button("Reactor"))
+            if (ImGui::Button("Reactor")) {
                 setReactorCamera();
-            if (ImGui::Button("Reactor panel"))
+                m_cameraMode = CameraMode::Overview;
+            }
+            if (ImGui::Button("Reactor panel")) {
                 setReactorPanelCamera();
+                m_cameraMode = CameraMode::Overview;
+            }
             ImGui::SameLine();
-            if (ImGui::Button("Platform logo"))
+            if (ImGui::Button("Platform logo")) {
                 setPlatformLogoCamera();
-            if (ImGui::Button("Environment mapping"))
+                m_cameraMode = CameraMode::Overview;
+            }
+            if (ImGui::Button("Environment mapping")) {
                 setReflectionShowcaseCamera();
+                m_cameraMode = CameraMode::Overview;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Follow drone"))
+                m_cameraMode = CameraMode::Follow;
+            if (ImGui::Button("Top view"))
+                m_cameraMode = CameraMode::Top;
+        }
+
+        if (ImGui::CollapsingHeader("Bezier curve", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Show path", &m_showPath);
+            ImGui::Checkbox("Fly", &m_flyDrone);
         }
 
         if (ImGui::CollapsingHeader("Advanced shading: PBR", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -373,13 +470,17 @@ private:
         glUniformMatrix4fv(m_defaultShader.getUniformLocation("spotlightViewProjectionMatrix"),
             1, GL_FALSE, glm::value_ptr(m_spotlightViewProjectionMatrix));
         m_spotlightShadowMap.bindForSampling(GL_TEXTURE5);
-        glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_camera.position()));
+        glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(m_cameraPosition));
 
         for (const SceneObject& object : m_sceneObjects)
             drawObject(object);
 
         if (m_showLightMarker)
             drawSpotlightMarker();
+
+        // after the marker because the path binds its own trivial shader
+        if (m_showPath)
+            m_flightPath.draw(viewProjectionMatrix);
 
         if (m_enableParticles)
             m_particleSystem.draw(m_viewMatrix, m_projectionMatrix, framebufferHeight);
@@ -435,6 +536,7 @@ private:
     Trackball m_camera;
     Environment m_environment;
     ParticleSystem m_particleSystem;
+    FlightPath m_flightPath;
     ShadowMap m_sunShadowMap;
     ShadowMap m_spotlightShadowMap;
 
@@ -456,6 +558,16 @@ private:
     glm::vec3 m_r_f_propellerOffset { 0.1072f, -0.0204f, -0.0957f };
     glm::vec3 m_l_b_propellerOffset { -0.1074f, -0.0204f, 0.0915f };
     glm::vec3 m_r_b_propellerOffset { 0.1072f, -0.0204f, 0.0915f };
+    size_t m_firstPropellerIndex { 0 };
+    float m_propellerAngle { 0.0f };
+    size_t m_droneBodyIndex { 0 };
+    float m_droneDistance { 0.0f }; // metres travelled along the path
+    glm::vec3 m_dronePosition { 0.0f };
+    glm::vec3 m_droneForward { 0.0f, 0.0f, -1.0f };
+    glm::vec3 m_droneUp { 0.0f, 1.0f, 0.0f };
+    bool m_showPath { true };
+    bool m_flyDrone { false };
+    CameraMode m_cameraMode { CameraMode::Overview };
 
     std::vector<SceneObject> m_sceneObjects;
     Model m_spotlightMarkerModel;
@@ -475,6 +587,7 @@ private:
 
     glm::mat4 m_projectionMatrix { 1.0f };
     glm::mat4 m_viewMatrix { 1.0f };
+    glm::vec3 m_cameraPosition { 0.0f }; // of the active camera mode, for the specular and reflections
     glm::mat4 m_sunViewProjectionMatrix { 1.0f };
     glm::mat4 m_spotlightViewProjectionMatrix { 1.0f };
 };
