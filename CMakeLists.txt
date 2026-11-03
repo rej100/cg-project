@@ -17,6 +17,7 @@ add_executable(Master_TechDemo
 	"src/particle_system.cpp"
 	"src/flight_path.cpp"
 	"src/mesh.cpp"
+	"src/bloom.cpp"
 )
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")

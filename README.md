@@ -65,11 +65,12 @@ The application opens **Reactor Inspection** and loads these model assets:
 | `assets/models/drone_body.obj` | Textured drone body. | Root translation `(0, 4.38, 4)` and uniform scale 4. |
 | `assets/models/L_F_propeller.obj`, `R_F_propeller.obj`, `L_B_propeller.obj`, `R_B_propeller.obj` | Four separately loaded propeller models. | Drone root transform composed with each propeller's local offset. |
 | `assets/models/showcase_model.obj` | 1 m polished chrome sphere on a 1.99 m ceramic/gold pedestal; 31,844 triangles in four constant-color material groups. | Translated by `(3.2, 0.38, 1.5)` to stand on the platform beside the reactor. |
+| `assets/models/lamp.obj` | About 6 m tall floodlight mast; its glass (`Ke 5`) faces local +Z, 5.62 m above the base. | Base at `(−4.7, 0.38, 1.0)` on the platform's −x side (away from the drone path), rotated about Y so the heads face the reactor, scaled by 0.6 (about 3.6 m tall). |
 | `assets/models/placeholder.obj` | Orange box/arrow spotlight marker; 30 triangles in one material group. | Its box center follows the spotlight position, with its arrow aligned to the light's aim. |
 
 The drone is a static assembly contributed through the partner's drone branch.
 Its root transform and propeller offsets are retained from that contribution;
-all seven exhibit objects are created explicitly and added to the scene vector.
+all eight exhibit objects (including the lamp) are created explicitly and added to the scene vector.
 The [asset inventory](assets/README.md#drone) lists its files, textures, and offsets.
 
 The OBJ/MTL files supply material colors and base-color textures, including the
@@ -110,8 +111,9 @@ mouse wheel zooms.
 | | **Spotlight shadows** | Toggle the spotlight's shadow map in **PBR** mode; enabled by default. |
 | | **Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
 | | **Emission** | Toggle the core's self-luminous contribution in **PBR** mode. |
-| | **Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target. |
+| | **Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target; off by default. |
 | **Particle effects** | **Particles** | Show and animate the cyan motes above the reactor; enabled by default. Turning it off hides and pauses the particles. |
+| **Bloom** | **Bloom / Strength** | Add the blurred parts brighter than 1 back onto the scene; strength 0–2, default 0.6. |
 | **UI settings** | **Display scale / UI scale** | Show the detected display scale and adjust the UI size. |
 
 **PBR** adds directional sunlight, spotlight illumination, environment
@@ -119,9 +121,8 @@ reflections, and one adjustable ambient-fill term, then adds material emission
 when enabled. All contributions are accumulated in linear RGB. Emission is
 independent of the surface's angle to the light. The core's `Ke (0, 1, 1.8)`
 already includes its authored
-strength and is used directly. The current SDR output clips channels above 1;
-HDR rendering and bloom are planned for preserving excess brightness and adding
-a halo.
+strength and is used directly. The scene is rendered into a float framebuffer,
+so values above 1 are kept for bloom and tone mapping (see [Bloom](#bloom)).
 **Base color** displays the material color or texture without lighting.
 The emission toggle affects only **PBR** mode.
 
@@ -288,8 +289,10 @@ the two independent shadow checkboxes.
 ### Lighting and its marker
 
 The sun supplies white directional light with direction-to-light
-`(-0.4, 1, 0.6)` and default intensity 1.25. The spotlight starts at
-`(5, 6, 4.5)`, aimed at `(0, 1.8, 0)`, with white light, intensity 0.5,
+`(-0.4, 1, 0.6)` and default intensity 1.25. The spotlight is placed just in
+front of the lamp's glass by transforming the lamp-local point `(0, 5.62, 0.3)`
+with the lamp's model matrix (about `(−4.5, 3.75, 0.96)` in world space). It is
+aimed at `(0, 1.8, 0)`, with white light, intensity 0.5,
 and a single cone half-angle of 25° (50° full opening). Its direction is derived
 from `target - position`. Position, target, light colors, and cone angle are
 configured in `src/light.h`; settings are uploaded as ordinary uniforms.
@@ -331,7 +334,8 @@ illumination and marker placement. **PBR** uses the metallic/roughness data and
 roughness textures loaded from the MTL files. Normal mapping applies the baked
 logo/panel relief, and environment reflections can be toggled independently.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
-linear colors, and the scene shader converts its final output to sRGB. Image
+linear colors, and the scene shader writes linear output; the bloom composite
+pass tone-maps it and converts it to sRGB. Image
 rows are flipped during GPU upload to match the OBJ UV convention.
 
 The main rendering responsibilities are:
@@ -405,15 +409,35 @@ environment reflections. The **Particle effects → Particles** checkbox hides
 and pauses it when off; re-enabling resumes the current particles. Simulation
 also pauses while minimized, with the frame clock refreshed to avoid a jump on
 return. The motes appear self-luminous but do not light nearby surfaces or cast
-shadows. Current addition happens in the sRGB-encoded SDR target, so it is a
-display-space approximation; the planned HDR/bloom pipeline can provide
-linear-light blending and a surrounding halo later.
+shadows. They are added in linear light in the float scene framebuffer, so
+overlapping motes can exceed 1 and pick up bloom.
 
 To inspect the result, use **Scene overview**, wait a few seconds for the stream
 to fill, and look above the reactor's top opening. Orbit or zoom to inspect its
 depth and toggle **Particles** to compare the scene with and without the effect.
 References: [OpenGL point size](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glPointSize.xhtml)
 and [blending](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml).
+
+### Bloom
+
+`Bloom` (`src/bloom.cpp`) renders the scene into an off-screen framebuffer
+with an `RGBA16F` colour texture and a 24-bit depth renderbuffer. The scene,
+sky, path and particle shaders all write linear, unclamped colour. After the
+scene, four fullscreen-triangle passes run (`shaders/fullscreen_vert.glsl`):
+
+1. **Bright pass** (`bloom_bright_frag.glsl`): keep pixels whose Rec. 709
+   luminance is above 1, others become black. The result is written at half
+   resolution, so linear filtering averages 2×2 pixels.
+2. **Blur** (`bloom_blur_frag.glsl`): a 9-tap separable Gaussian, horizontal
+   then vertical, ping-ponging between two half-resolution textures 5 times.
+3. **Composite** (`bloom_composite_frag.glsl`): `scene + strength × blur`, then
+   the ACES filmic fit (Narkowicz) tone map and sRGB encoding to the screen.
+
+With **Bloom** off, the bright and blur passes are skipped and the composite
+uses strength 0, so tone mapping still applies. All textures are recreated
+whenever the framebuffer size changes; a minimized (zero-size) window keeps the
+previous textures. The lamp glass, the reactor core, specular highlights and
+the sun in the sky are the main sources of bloom.
 
 ### Window size and UI scaling
 

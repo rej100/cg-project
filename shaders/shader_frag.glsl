@@ -12,7 +12,7 @@ layout(std140) uniform Material // Must match the GPUMaterial defined in src/mes
     float normalMapStrength;
 };
 
-// in general everything is linear rgb except for the fragColor output
+// everything is linear rgb, including the fragColor output (it goes into the float bloom framebuffer)
 
 // can be stored as srgb on gpu but texture(...) will return linear rgb
 uniform sampler2D baseColorMap;
@@ -212,24 +212,6 @@ vec3 shadeEnvironment(vec3 baseColor, float metallic, float roughness, vec3 norm
     return pbrFresnel(nDotV, f0) * reflectedColor;
 }
 
-// convert linear rgb to srgb for display (copied)
-vec3 linearToSrgb(vec3 color)
-{
-    vec3 result;
-
-    for (int channel = 0; channel < 3; ++channel) {
-        float value = max(color[channel], 0.0);
-
-        if (value <= 0.0031308) {
-            result[channel] = 12.92 * value;
-        } else {
-            result[channel] = 1.055 * pow(value, 1.0 / 2.4) - 0.055;
-        }
-    }
-
-    return result;
-}
-
 // get the normal from the normal map is available
 vec3 resolveShadingNormal(vec3 meshNormal)
 {
@@ -281,5 +263,6 @@ void main()
             color += emission;
     }
 
-    fragColor = vec4(linearToSrgb(color), 1.0);
+    // stays linear and can go above 1, the bloom composite pass does tone mapping and srgb
+    fragColor = vec4(color, 1.0);
 }

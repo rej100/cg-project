@@ -1,5 +1,6 @@
 // Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
+#include "bloom.h"
 #include "environment.h"
 #include "flight_path.h"
 #include "light.h"
@@ -47,6 +48,7 @@ public:
         m_r_b_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_B_propeller.obj");
         m_r_f_propeller.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/R_F_propeller.obj");
         m_showcaseModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/showcase_model.obj");
+        m_lampModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/lamp.obj");
 
         SceneObject platformObject {};
         platformObject.model = &m_platformModel;
@@ -99,6 +101,17 @@ public:
             glm::vec3(3.2f, PLATFORM_HEIGHT, 1.5f));
         m_sceneObjects.push_back(showcaseObject);
 
+        const float lampAngle = std::atan2(-LAMP_BASE.x, -LAMP_BASE.z);
+        SceneObject lampObject {};
+        lampObject.model = &m_lampModel;
+        lampObject.modelMatrix = glm::scale(
+            glm::rotate(glm::translate(glm::mat4(1.0f), LAMP_BASE), lampAngle, glm::vec3(0.0f, 1.0f, 0.0f)),
+            glm::vec3(LAMP_SCALE));
+        m_sceneObjects.push_back(lampObject);
+
+        // moving light in frnt of the glass
+        m_spotlight.position = glm::vec3(lampObject.modelMatrix * glm::vec4(0.0f, LAMP_GLASS_HEIGHT, LAMP_LIGHT_DEPTH, 1.0f));
+
         m_spotlightMarkerModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/placeholder.obj");
         m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
 
@@ -116,6 +129,8 @@ public:
 
         // put the emitter at the top of the core on top of the reactor (y 3.5)
         m_particleSystem.initialize(glm::vec3(0.0f, PLATFORM_HEIGHT + 3.52f, 0.0f));
+
+        m_bloom.initialize();
     }
 
     void update()
@@ -128,6 +143,8 @@ public:
             previousTime = currentTime;
 
             const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
+            // the bloom textures have to match the window so recreate them after a resize
+            m_bloom.resize(framebufferSize);
 
             glViewport(0, 0, framebufferSize.x, framebufferSize.y);
             drawUi();
@@ -160,6 +177,12 @@ private:
     static constexpr float DRONE_SPEED = 2.0f;
     static constexpr float DRONE_SCALE = 4.0f;
     static constexpr float PLATFORM_HEIGHT = 0.38f;
+    static constexpr glm::vec3 LAMP_BASE { -4.7f, PLATFORM_HEIGHT, 1.0f };
+    // the model is about 6 m tall, this makes it about as tall as the reactor
+    static constexpr float LAMP_SCALE = 0.6f;
+    // in model units: centre of the lamp glass above the lamp base, the glass itself is at local z 0.229
+    static constexpr float LAMP_GLASS_HEIGHT = 5.62f;
+    static constexpr float LAMP_LIGHT_DEPTH = 0.3f;
     static constexpr int SUN_SHADOW_RESOLUTION = 2048;
     static constexpr int SPOTLIGHT_SHADOW_RESOLUTION = 2048;
 
@@ -317,6 +340,11 @@ private:
         if (ImGui::CollapsingHeader("Particle effects", ImGuiTreeNodeFlags_DefaultOpen))
             ImGui::Checkbox("Particles", &m_enableParticles);
 
+        if (ImGui::CollapsingHeader("Bloom##Section", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Bloom", &m_enableBloom);
+            ImGui::SliderFloat("Strength##Bloom", &m_bloomStrength, 0.0f, 2.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        }
+
         if (ImGui::CollapsingHeader("UI settings", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Text("Display scale: %.2fx", static_cast<double>(m_window.getDpiScalingFactor()));
             float uiScale = m_window.getUiScale();
@@ -435,8 +463,9 @@ private:
         renderSunShadowMap();
         renderSpotlightShadowMap();
 
-        // ImGui supplies srgb so we make shader supply srgb as well
-        // and disable automatic encoding for the framebuffer
+        // the scene goes into the float framebuffer in linear rgb, the bloom composite converts to srgb itself
+        // (ImGui supplies srgb too) so disable automatic encoding for the framebuffer
+        m_bloom.bindForDrawing();
         glDisable(GL_FRAMEBUFFER_SRGB);
         // the skybox paints over this color 
         glClearColor(0.84f, 0.87f, 0.90f, 1.0f);
@@ -484,6 +513,9 @@ private:
 
         if (m_enableParticles)
             m_particleSystem.draw(m_viewMatrix, m_projectionMatrix, framebufferHeight);
+
+        // onto the screen, ImGui draws on top of this afterwards
+        m_bloom.apply(m_enableBloom, m_bloomStrength);
     }
 
     void uploadLightUniforms()
@@ -539,6 +571,7 @@ private:
     FlightPath m_flightPath;
     ShadowMap m_sunShadowMap;
     ShadowMap m_spotlightShadowMap;
+    Bloom m_bloom;
 
     // Shader for default rendering and for depth rendering
     Shader m_defaultShader;
@@ -552,6 +585,7 @@ private:
     Model m_r_b_propeller;
     Model m_r_f_propeller;
     Model m_showcaseModel;
+    Model m_lampModel;
     glm::mat4 m_droneBodyMatrix { 1.0f };
     // Propeller positions relative to the drone body:
     glm::vec3 m_l_f_propellerOffset { -0.1074f, -0.0204f, -0.0957f };
@@ -572,7 +606,7 @@ private:
     std::vector<SceneObject> m_sceneObjects;
     Model m_spotlightMarkerModel;
     SceneObject m_spotlightMarkerObject {};
-    bool m_showLightMarker { true };
+    bool m_showLightMarker { false };
     ShadingMode m_shadingMode { ShadingMode::Pbr };
     bool m_enableEmission { true };
     bool m_enableMaterialTextures { true };
@@ -581,6 +615,8 @@ private:
     bool m_enableSunShadows { true };
     bool m_enableSpotlightShadows { true };
     bool m_enableParticles { true };
+    bool m_enableBloom { true };
+    float m_bloomStrength { 0.6f };
     DirectionalLight m_sun;
     SpotLight m_spotlight;
     float m_ambientStrength { 0.25f };

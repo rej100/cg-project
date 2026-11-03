@@ -12,22 +12,9 @@ uniform samplerCube environmentMap;
 in vec3 fragDirection;
 layout(location = 0) out vec4 fragColor;
 
-vec3 linearToSrgb(vec3 color)
-{
-    vec3 result;
-    for (int channel = 0; channel < 3; ++channel) {
-        float value = max(color[channel], 0.0);
-        if (value <= 0.0031308) {
-            result[channel] = 12.92 * value;
-        } else {
-            result[channel] = 1.055 * pow(value, 1.0 / 2.4) - 0.055;
-        }
-    }
-    return result;
-}
-
 void main()
 {
+    // linear and unclamped so the bright sun in the hdr sky can bloom
     vec3 color = textureLod(environmentMap, normalize(fragDirection), 0.0).rgb;
-    fragColor = vec4(linearToSrgb(color), 1.0);
+    fragColor = vec4(color, 1.0);
 }
