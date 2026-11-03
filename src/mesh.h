@@ -53,11 +53,10 @@ public:
     bool hasNormalTexture() const;
     const std::string& materialName() const;
 
-    // Bind this mesh's material and base-color texture, then draw its indexed geometry.
     void draw(const Shader& drawingShader) const;
 
     // draw only the indexed geometry, for passes such as shadow depth rendering
-    // that do not use this mesh's material uniforms or textures.
+    // that do not use this mesh's material uniforms or textures
     void drawGeometry() const;
 
 private:

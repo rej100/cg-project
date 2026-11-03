@@ -9,8 +9,6 @@
 // the cubemap is sampled with world space direction
 class Environment {
 public:
-    // Call once after creating the OpenGL context. The cubemap and cube buffers
-    // stay allocated until that context is destroyed at application shutdown.
     void initialize(const std::filesystem::path& panoramaPath);
 
     void bind(GLenum textureSlot) const;

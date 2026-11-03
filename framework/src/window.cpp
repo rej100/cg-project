@@ -9,6 +9,8 @@
 #include <iostream>
 #include <stb/stb_image_write.h>
 
+// some ai help with the ui scaling
+
 static constexpr float BASE_FONT_SIZE = 18.0f;
 
 static void glfwErrorCallback(int error, const char* description)

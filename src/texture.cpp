@@ -30,14 +30,13 @@ Texture::Texture(const Image& image, TextureColorSpace colorSpace)
         break;
     case 4:
         format = GL_RGBA;
-        // An sRGB RGBA format decodes RGB only; alpha is not sRGB-encoded.
         internalFormat = colorSpace == TextureColorSpace::Srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8;
         break;
     default:
         throw ImageLoadingException("Unsupported number of image channels");
     }
 
-    // Image stores rows top-to-bottom; OpenGL UVs expect the first row at the bottom.
+    // image stores rows top to bottom but opengl uvs are first row at the bottom
     const size_t rowBytes = static_cast<size_t>(image.width) * static_cast<size_t>(image.channels);
     const size_t height = static_cast<size_t>(image.height);
     std::vector<uint8_t> bottomUpPixels(rowBytes * height);
@@ -55,12 +54,12 @@ Texture::Texture(const Image& image, TextureColorSpace colorSpace)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    // Trilinear minification and bilinear magnification.
+    // trilinear minification and bilinear magnification
     // GL_LINEAR is sample interpolation here not rgb encoding
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Rows are tightly packed even when their byte count is not a multiple of four.
+    // rows are tightly packed even when their byte count is not a multiple of four
     GLint previousAlignment;
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousAlignment);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

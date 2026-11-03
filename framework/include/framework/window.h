@@ -30,7 +30,6 @@ public:
 	void maximize();
 	[[nodiscard]] bool isMinimized() const;
 
-	// Apply font/style changes between frames, including changes requested by the UI.
 	void setUiScale(float scale);
 	[[nodiscard]] float getUiScale() const;
 

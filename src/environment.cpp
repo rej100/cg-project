@@ -134,8 +134,6 @@ void Environment::initialize(const std::filesystem::path& panoramaPath)
     // upload the pixels for the sky texture to the gpu
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, panorama.width, panorama.height,
         0, GL_RGB, GL_FLOAT, bottomUpPixels.data());
-    // Left/right edges join at the panorama's longitude seam; top/bottom
-    // are different poles and must not wrap into one another.
 
     // set horizontal wrapping to repeat (the sky panorama is a full turnaround so the left and right sides meet)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -275,8 +273,7 @@ void Environment::drawBackground(const glm::mat4& viewMatrix, const glm::mat4& p
     glDepthMask(GL_FALSE);
     glDisable(GL_CULL_FACE);
 
-    // Keeping only view rotation makes the cube follow camera translation.
-    // Moving cannot approach the sky; turning still changes the lookup direction.
+    // keeping only view rotation makes the cube follow camera
 
     // the fourth column of the viewMatrix we get has the translation of the camera but we don't want it
     const glm::mat4 viewProjection = projectionMatrix * glm::mat4(glm::mat3(viewMatrix));

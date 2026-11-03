@@ -1,4 +1,3 @@
-// Window includes GLFW and OpenGL headers in the required order.
 #include <framework/window.h>
 #include "bloom.h"
 #include "environment.h"
@@ -34,7 +33,7 @@ public:
         , m_camera(&m_window, glm::radians(CAMERA_FOV_DEGREES))
     {
         m_window.maximize();
-        // Filter across cubemap face boundaries instead of leaving visible seams.
+        // for the cubemap face boundaries
         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
         setOverviewCamera();
 
@@ -248,7 +247,7 @@ private:
 
     void setOverviewCamera()
     {
-        // The platform and reactor face +Z in application coordinates.
+        // the platform and reactor face z
         m_camera.setCamera(glm::vec3(0.0f, 1.1f, 0.0f),
             glm::radians(glm::vec3(35.0f, 160.0f, 0.0f)), 16.0f);
     }
@@ -541,7 +540,7 @@ private:
     Model m_showcaseModel;
     Model m_lampModel;
     glm::mat4 m_droneBodyMatrix { 1.0f };
-    // Propeller positions relative to the drone body:
+    // propeller positions relative to the drone body
     glm::vec3 m_l_f_propellerOffset { -0.1074f, -0.0204f, -0.0957f };
     glm::vec3 m_r_f_propellerOffset { 0.1072f, -0.0204f, -0.0957f };
     glm::vec3 m_l_b_propellerOffset { -0.1074f, -0.0204f, 0.0915f };
