@@ -30,7 +30,7 @@ DISABLE_WARNINGS_POP()
 class Application {
 public:
     Application()
-        : m_window("Reactor Inspection", glm::ivec2(1600, 900), OpenGLVersion::GL41)
+        : m_window("Final Project", glm::ivec2(1600, 900), OpenGLVersion::GL41)
         , m_camera(&m_window, glm::radians(CAMERA_FOV_DEGREES))
     {
         m_window.maximize();
