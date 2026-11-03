@@ -421,15 +421,22 @@ and [blending](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBlendFunc
 ### Bloom
 
 `Bloom` (`src/bloom.cpp`) renders the scene into an off-screen framebuffer
-with an `RGBA16F` colour texture and a 24-bit depth renderbuffer. The scene,
-sky, path and particle shaders all write linear, unclamped colour. After the
-scene, four fullscreen-triangle passes run (`shaders/fullscreen_vert.glsl`):
+with an `RGBA32F` colour texture and a 24-bit depth renderbuffer. The 32-bit
+float range accommodates the HDR environment's sun, which exceeds the largest
+finite half-float value (65,504). Scene, sky, path and particle shaders all
+write linear, unclamped colour. After the scene, fullscreen-triangle passes
+run (`shaders/fullscreen_vert.glsl`):
 
 1. **Bright pass** (`bloom_bright_frag.glsl`): keep pixels whose Rec. 709
-   luminance is above 1, others become black. The result is written at half
-   resolution, so linear filtering averages 2×2 pixels.
+   luminance is above 1, others become black. Above `MAX_BLOOM_BRIGHTNESS = 20`,
+   scale all RGB channels by `20 / luminance` to preserve colour proportions
+   while limiting extreme reflections' contribution to the glow. This affects
+   only the bloom copy; the scene texture retains its original HDR values.
+   The result is written at half resolution, so linear filtering averages
+   2×2 pixels.
 2. **Blur** (`bloom_blur_frag.glsl`): a 9-tap separable Gaussian, horizontal
-   then vertical, ping-ponging between two half-resolution textures 5 times.
+   then vertical, ping-ponging between two half-resolution `RGBA16F` textures
+   5 times. The capped input fits safely within their numeric range.
 3. **Composite** (`bloom_composite_frag.glsl`): `scene + strength × blur`, then
    the ACES filmic fit (Narkowicz) tone map and sRGB encoding to the screen.
 

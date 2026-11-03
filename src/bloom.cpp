@@ -6,12 +6,12 @@
 namespace {
 
 // float colour texture that we can render into and sample with linear filtering
-GLuint createColorTexture(glm::ivec2 size)
+GLuint createColorTexture(glm::ivec2 size, GLint internalFormat)
 {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, size.x, size.y, 0, GL_RGBA, GL_HALF_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, size.x, size.y, 0, GL_RGBA, GL_FLOAT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // the blur would otherwise wrap light from one edge of the screen to the other
@@ -67,7 +67,8 @@ void Bloom::resize(glm::ivec2 size)
 void Bloom::createTextures()
 {
     // the scene gets a float colour texture plus a depth buffer for the depth test
-    m_sceneTexture = createColorTexture(m_size);
+    // also 32 bit because the sun values can be more than 16
+    m_sceneTexture = createColorTexture(m_size, GL_RGBA32F);
     m_sceneFramebuffer = createFramebuffer(m_sceneTexture);
     glGenRenderbuffers(1, &m_depthRenderbuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, m_depthRenderbuffer);
@@ -75,7 +76,7 @@ void Bloom::createTextures()
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRenderbuffer);
 
     for (int i = 0; i < 2; ++i) {
-        m_blurTextures[i] = createColorTexture(m_blurSize);
+        m_blurTextures[i] = createColorTexture(m_blurSize, GL_RGBA16F);
         m_blurFramebuffers[i] = createFramebuffer(m_blurTextures[i]);
     }
 

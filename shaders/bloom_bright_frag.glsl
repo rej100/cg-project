@@ -7,13 +7,21 @@ uniform sampler2D sceneTexture;
 in vec2 fragTexCoord;
 layout(location = 0) out vec4 fragColor;
 
+const float MAX_BLOOM_BRIGHTNESS = 20.0;
+
+x = 
+
 void main()
 {
     vec3 color = texture(sceneTexture, fragTexCoord).rgb;
-    // perceived brightness, green counts the most (rec. 709 luminance weights)
+    // perceived brightness from rec 709 luminance weights
     float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    if (brightness > 1.0)
+    if (brightness > 1.0) {
+        // limit only the bloom
+        if (brightness > MAX_BLOOM_BRIGHTNESS)
+            color *= MAX_BLOOM_BRIGHTNESS / brightness;
         fragColor = vec4(color, 1.0);
-    else
+    } else {
         fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
 }
