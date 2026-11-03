@@ -128,6 +128,7 @@ float spotlightShadowVisibility()
 }
 
 // cook-torrance with ggx distribution, smith visibility, and schlick fresnel
+// some equations and inspiration from:
 // https://learnopengl.com/PBR/Theory
 // https://learnopengl.com/PBR/Lighting
 float pbrDistribution(float nDotH, float alpha)

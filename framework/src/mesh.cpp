@@ -71,6 +71,7 @@ std::vector<Mesh> loadMesh(const std::filesystem::path& file, const LoadMeshSett
         throw std::exception();
     }
 
+    // some ai help with this
     std::vector<Mesh> out;
     for (const auto& shape : inShapes) {
         assert(shape.mesh.indices.size() % 3 == 0);

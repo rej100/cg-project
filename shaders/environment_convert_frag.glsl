@@ -20,6 +20,7 @@ void main()
     // the upload flips the rows so v=1 is the top (+y) of the panorama
     vec2 uv;
 
+    // same logic as here:
     // https://learnopengl.com/PBR/IBL/Diffuse-irradiance
     uv.x = atan(direction.z, direction.x) / (2.0 * PI) + 0.5;
     uv.y = asin(clamp(direction.y, -1.0, 1.0)) / PI + 0.5;
