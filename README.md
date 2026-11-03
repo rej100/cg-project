@@ -56,21 +56,21 @@ The executable target is `Master_TechDemo`, defined in the root `CMakeLists.txt`
 Its C++ entry point is `main()` in `src/application.cpp`, which constructs an
 `Application` and calls `update()` to run the input/rendering loop.
 
-The application opens **Reactor Inspection** and loads these model assets:
+The application opens **Final Project** and loads these model assets:
 
 | Model | Geometry | Placement |
 | --- | --- | --- |
 | `assets/models/platform.obj` | 12 m diameter, 0.38 m tall; 15,352 triangles in three material groups. | Identity transform, with its bottom at ground level. |
 | `assets/models/reactor.obj` | 3.5 m tall; 61,820 triangles in six material groups. | Translated by `(0, 0.38, 0)` to sit on the platform. |
-| `assets/models/drone_body.obj` | Textured drone body. | Root translation `(0, 4.38, 4)` and uniform scale 4. |
+| `assets/models/drone_body.obj` | Textured drone body. | Root follows the Bézier path at 2 m/s, with uniform scale 4. |
 | `assets/models/L_F_propeller.obj`, `R_F_propeller.obj`, `L_B_propeller.obj`, `R_B_propeller.obj` | Four separately loaded propeller models. | Drone root transform composed with each propeller's local offset. |
 | `assets/models/showcase_model.obj` | 1 m polished chrome sphere on a 1.99 m ceramic/gold pedestal; 31,844 triangles in four constant-color material groups. | Translated by `(3.2, 0.38, 1.5)` to stand on the platform beside the reactor. |
 | `assets/models/lamp.obj` | About 6 m tall floodlight mast; its glass (`Ke 5`) faces local +Z, 5.62 m above the base. | Base at `(−4.7, 0.38, 1.0)` on the platform's −x side (away from the drone path), rotated about Y so the heads face the reactor, scaled by 0.6 (about 3.6 m tall). |
-| `assets/models/placeholder.obj` | Orange box/arrow spotlight marker; 30 triangles in one material group. | Its box center follows the spotlight position, with its arrow aligned to the light's aim. |
 
-The drone is a static assembly contributed through the partner's drone branch.
-Its root transform and propeller offsets are retained from that contribution;
-all eight exhibit objects (including the lamp) are created explicitly and added to the scene vector.
+The drone geometry and local propeller offsets come from the partner's drone
+branch. Its root follows the flight path, and its propellers spin relative to
+the body. All nine exhibit objects are created explicitly and added to the scene
+vector.
 The [asset inventory](assets/README.md#drone) lists its files, textures, and offsets.
 
 The OBJ/MTL files supply material colors and base-color textures, including the
@@ -97,11 +97,14 @@ mouse wheel zooms.
 | Section | Control | Action |
 | --- | --- | --- |
 | **Multiple viewpoints** | **Scene overview** | Frame the platform and reactor from above their front side (+Z). |
-| | **Reactor** | Frame the reactor more closely. |
 | | **Reactor panel** | Inspect the front logo and `REACTOR 1337 / GROUP 4` caption. |
-| | **Platform logo** | Frame the logo near the platform's front rim. |
-| | **Reflection showcase** | Frame the polished chrome sphere beside the reactor. |
+| | **Environment mapping** | Frame the polished chrome sphere beside the reactor. |
+| | **Follow drone** | Follow behind the drone as it moves along the path. |
+| | **Top view** | Inspect the scene and flight path from above. |
+| **Bezier curves (constant speed)** | **Show path** | Toggle the rendered flight-path curve. |
+| | **Fly** | Move the drone along the curve at approximately 2 m/s using the arc-length lookup table. |
 | **Advanced shading: PBR** | **Shading** | Select **PBR** (default) or **Base color**. |
+| | **Emission** | Toggle material self-luminous colour in **PBR** mode, including the reactor core and lamp glass. |
 | **Material textures** | **Material textures** | Sample each material's base-color/roughness images; when off, use the material's loaded constant values. |
 | **Normal mapping** | **Normal mapping** | Shade with the tangent-space normal maps' relief (platform logo, reactor panel); when off, use the original mesh normals. |
 | **Environment mapping** | **Environment reflections** | Toggle the environment's specular reflection in **PBR** mode; the sky background stays visible. |
@@ -110,8 +113,6 @@ mouse wheel zooms.
 | | **Spotlight / Intensity** | Toggle the showcase spotlight and adjust its intensity on one row. |
 | | **Spotlight shadows** | Toggle the spotlight's shadow map in **PBR** mode; enabled by default. |
 | | **Ambient strength** | Adjust the single constant ambient-fill contribution; default 0.25. |
-| | **Emission** | Toggle the core's self-luminous contribution in **PBR** mode. |
-| | **Show light marker** | Show the orange box/arrow at the spotlight's position, pointing toward its target; off by default. |
 | **Particle effects** | **Particles** | Show and animate the cyan motes above the reactor; enabled by default. Turning it off hides and pauses the particles. |
 | **Bloom** | **Bloom / Strength** | Add the blurred parts brighter than 1 back onto the scene; strength 0–2, default 0.6. |
 | **UI settings** | **Display scale / UI scale** | Show the detected display scale and adjust the UI size. |
@@ -209,15 +210,14 @@ continues to supply diffuse fill. Reflections contain this distant panorama,
 not the reactor or drone; the cubemap is bound once per frame on texture unit 3
 (base color, roughness, and normal maps occupy units 0, 1, and 2).
 
-To inspect the effect, choose **PBR**, use the **Reflection showcase** camera,
+To inspect the effect, choose **PBR**, use the **Environment mapping** camera,
 and toggle **Environment reflections**: the polished chrome sphere (metallic 1,
 roughness 0.05) mirrors recognizable panorama features, including the bright sun
 disk, and the reflections slide across it while orbiting. The gold rings and
 collar show a rougher, tinted variation of the same effect. **Base color** does
 not add environment reflections.
-Both the sky and scene shaders convert linear RGB to sRGB for the current SDR
-output, so values above 1 still clip on display; the
-floating-point environment data is retained for the planned HDR/bloom pipeline.
+Both the sky and scene shaders retain linear HDR values in the scene texture;
+the bloom composite tone-maps the result and converts it to sRGB for display.
 
 ### Sun shadow mapping
 
@@ -232,8 +232,7 @@ Before the camera pass, the scene is drawn into that depth texture using the
 existing `shadow_vert.glsl` / `shadow_frag.glsl` program. Each object supplies
 `sunProjection * sunView * modelMatrix`; `GPUMesh::drawGeometry()` draws the
 indexed geometry without material bindings. The platform, reactor, drone body,
-propellers, and reflection showcase cast shadows. The debug light marker is
-excluded from this pass.
+propellers, reflection showcase, and lamp cast shadows.
 The scene framebuffer and viewport are explicitly restored afterward.
 
 The light camera looks toward `(0, 2, 0)` from 20 m along the direction to the
@@ -286,7 +285,7 @@ in PBR. To inspect it alone, select **PBR**, disable **Sun**, **Emission**, and
 **Spotlight shadows**. Then enable both lights and compare their shadows using
 the two independent shadow checkboxes.
 
-### Lighting and its marker
+### Lighting and lamp
 
 The sun supplies white directional light with direction-to-light
 `(-0.4, 1, 0.6)` and default intensity 1.25. The spotlight is placed just in
@@ -305,33 +304,23 @@ normal's angle to the light. Coincident position/target values use a downward
 aim, and a fragment at the light position receives zero spotlight contribution.
 
 The **Shadows from multiple light sources** section has enable/intensity and
-shadow controls for each light, plus ambient strength, emission, and marker
-visibility. Both intensity sliders use the range 0–2. Widget widths and spacing
-follow the UI font size.
+shadow controls for each light, plus ambient strength. Both intensity sliders
+use the range 0–2. Widget widths and spacing follow the UI font size. Material
+emission is controlled separately under **Advanced shading: PBR**.
 
 The ambient strength starts at 0.25 and is added once, independently of the
 two direct lights. Future environment-based diffuse lighting will replace this
 constant fill. The sun uses the orthographic shadow map described above;
 the spotlight uses its own perspective shadow map.
 
-`assets/models/placeholder.obj` is a Blender-authored, 30-triangle box/arrow
-marker, loaded through the same OBJ/MTL pipeline as the exhibit models. Its
-editable source is `assets/source/placeholder.blend`. The marker's `Model` owns
-the GPU mesh, and an explicit `SceneObject` gets its transform from the
-spotlight's position and aim. The marker points along local −Z;
-the inverse light-view matrix places it in world space, with an alternate up
-axis for vertical aiming. It is drawn after the exhibit objects using the
-existing **Base color** path, then the selected shader mode is restored.
-The marker stays colored in every shading mode and with the lights disabled,
-while normal depth testing lets scene geometry obscure it.
+The lamp model provides the spotlight's visible fixture and is drawn as a
+regular scene object. Its glass uses material emission, independently of the
+spotlight's illumination toggle.
 
 To compare the lights, use **PBR**, turn **Emission** and **Environment
 reflections** off, and set **Ambient strength** to zero. Inspect the sun alone,
-the spotlight alone, and both together. With both lights off, the exhibit
-surfaces are black; the background and enabled debug marker remain visible.
-Changing the configured spotlight position or target updates both the
-illumination and marker placement. **PBR** uses the metallic/roughness data and
-roughness textures loaded from the MTL files. Normal mapping applies the baked
+the spotlight alone, and both together. **PBR** uses the metallic/roughness data
+and roughness textures loaded from the MTL files. Normal mapping applies the baked
 logo/panel relief, and environment reflections can be toggled independently.
 Base-color textures are uploaded as sRGB and decoded by OpenGL; lighting uses
 linear colors, and the scene shader writes linear output; the bloom composite
@@ -350,8 +339,9 @@ The main rendering responsibilities are:
 | `src/environment.cpp` | Convert the panorama into a cubemap, generate reflection mipmaps, own the cube resources, and draw the sky background. |
 | `src/shadow_map.cpp` | Allocate a depth texture/framebuffer and bind it for shadow rendering or sampling. |
 | `src/particle_system.cpp` | Emit and update a fixed CPU particle pool, upload living particles, and draw additive point sprites. |
+| `src/flight_path.cpp` | Define the closed Bézier route, build its sampled arc-length table for constant-speed movement, and draw the path. |
 | `src/mesh.cpp` | Own GPU geometry/material resources, bind material textures for normal drawing, and provide geometry-only drawing for depth passes. |
-| `src/application.cpp` | Own models, instances, lights, environment, shadow maps, and particles; measure frame time, coordinate camera/UI and shared settings, and draw shadow, scene, marker, and particle passes. |
+| `src/application.cpp` | Own models, instances, lights, environment, shadow maps, and particles; measure frame time, coordinate camera/UI and shared settings, and draw shadow, scene, path, particle, and bloom passes. |
 | `shaders/shader_{vert,frag}.glsl` | Transform vertices and tangents, choose material inputs, resolve the shading normal, and apply each light's visibility, ambient fill, emission, direct lights, and PBR environment reflections. |
 | `shaders/shadow_{vert,frag}.glsl` | Project geometry from the light's viewpoint and let the depth test store the nearest surface. |
 | `shaders/particle_{vert,frag}.glsl` | Project particle centres, calculate pixel diameters, and shade soft cyan disks with lifetime opacity. |
@@ -396,7 +386,7 @@ projection scale, and the actual framebuffer height. OpenGL applies its native
 point-size limits. The fragment shader uses
 `gl_PointCoord` to make a soft circular mask inside each point's square.
 
-Particles are drawn after the opaque scene and light marker. Depth testing
+Particles are drawn after the opaque scene and path visualization. Depth testing
 keeps them behind scene geometry, while depth writes are disabled so one soft
 dot does not block another. Additive blending (`GL_SRC_ALPHA`, `GL_ONE`) adds
 each dot's opacity-weighted cyan colour; no depth sorting is needed. The pass

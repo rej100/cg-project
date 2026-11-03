@@ -157,10 +157,9 @@ normal-map demonstration clearly visible, including around the dark lettering.
 
 The application loads the reactor as a separate model instance, translated by
 `(0, 0.38, 0)` to sit on the platform. It displays the base colors/textures and
-core emission, with camera presets for the complete assembly, reactor, panel,
-and platform logo. Blender previews include the full PBR materials, emission,
-and a restrained compositor glow; application-side bloom is a planned rendering
-stage.
+core emission, with **Scene overview** and **Reactor panel** camera presets.
+Blender previews include the full PBR materials, emission, and a restrained
+compositor glow; the application provides an independent bloom toggle.
 
 ### Files
 
@@ -195,8 +194,8 @@ assign materials by name rather than by mesh order.
 
 The core's Blender emission color is `(0, 0.25, 0.45)` with strength 4, exported
 as `Ke 0 1 1.8`. The application reads this linear emission value directly and
-adds it in PBR mode when the **Emission** checkbox is enabled. HDR rendering and
-bloom will provide the surrounding halo in a later rendering stage.
+adds it in PBR mode when **Advanced shading: PBR → Emission** is enabled. HDR
+rendering and bloom provide the surrounding halo.
 
 As with the platform, the panel's MTL reference is
 `map_Bump -bm 1.500000 ../textures/reactor_panel_normal.png`. Interpret this as a
@@ -348,15 +347,17 @@ application imports metallic 0 and roughness 0 using tinyobjloader's defaults.
 
 ### Placement and part transforms
 
-The body uses the contributed root transform:
+The body's root position and orientation follow the Bézier path, with the
+contributed uniform scale of 4. Each propeller inherits the root transform and
+adds its model-local offset and spin:
 
 ```text
-root = translation(0, 4.38, 4) * scale(4)
-propeller = root * translation(local offset)
+root = translation(path position) * orientation * scale(4)
+propeller = root * translation(local offset) * rotation(local Y)
 ```
 
-The root height is `PLATFORM_HEIGHT + 4.0`, and the uniform scale is applied
-to both the component geometry and these model-local offsets:
+The uniform scale applies to both the component geometry and these model-local
+offsets:
 
 | Part | Local offset `(X, Y, Z)` |
 | --- | --- |
@@ -365,43 +366,6 @@ to both the component geometry and these model-local offsets:
 | Left back | `(-0.1074, -0.0204, 0.0915)` |
 | Right back | `(0.1072, -0.0204, 0.0915)` |
 
-This assembly provides the starting placement for the planned flight-path
-and component animation stages.
-
-## Spotlight placeholder
-
-![Spotlight placeholder](previews/placeholder.png)
-
-A small orange box and arrow used to show the spotlight's position and aim.
-The 0.30 m box is centered at the shared origin, and the arrow tip is 1.10 m
-from that origin. It has 30 triangles and one constant-color material,
-`spotlight_marker`, with linear base color `(1, 0.24, 0.015)` and zero emission.
-It was authored for this project in Blender and uses no textures.
-
-### Files
-
-| File | Purpose |
-| --- | --- |
-| `source/placeholder.blend` | Editable box, shaft, and arrowhead in one mesh, with a preview camera and softbox. |
-| `models/placeholder.obj` / `models/placeholder.mtl` | Triangulated marker with flat normals, one material group, and no UV references. |
-| `previews/placeholder.png` | 512 × 512 Blender preview. |
-
-### Coordinates and application use
-
-- The origin is the **box center**, representing the light source position.
-- The source uses meters with **Z up**; the arrow points along Blender **+Y**.
-- Export selected geometry with **Y up**, **−Z forward**, scale 1,
-  triangulation, normals, and materials. The exported arrow therefore points
-  along application **−Z**, with its tip at `(0, 0, -1.10)`.
-- The exported bounds are X/Y `[-0.18, 0.18]` and Z `[-1.10, 0.15]`, giving
-  dimensions **0.36 × 0.36 × 1.25 m**.
-- **`Placeholder | EXPORT`** contains the asset mesh; **`Studio | PREVIEW ONLY`**
-  contains the camera and softbox, excluded from the OBJ export. The source
-  opens with the marker selected and framed in a material-colored solid view.
-- The application loads the OBJ at its authored scale, derives the marker's
-  transform from the spotlight position/target, and draws it using Base color
-  shading. The **Show light marker** checkbox controls its visibility.
-
-The three component surfaces are closed, with no boundary or non-manifold
-edges. Exported geometry, material color, triangle count, and arrow-axis
-convention were checked against the application's original marker.
+The **Bezier curves (constant speed) → Fly** checkbox controls route movement.
+The propellers continue spinning independently; both animations use elapsed
+time.

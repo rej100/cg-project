@@ -112,9 +112,6 @@ public:
         // moving light in frnt of the glass
         m_spotlight.position = glm::vec3(lampObject.modelMatrix * glm::vec4(0.0f, LAMP_GLASS_HEIGHT, LAMP_LIGHT_DEPTH, 1.0f));
 
-        m_spotlightMarkerModel.meshes = GPUMesh::loadMeshGPU(RESOURCE_ROOT "assets/models/placeholder.obj");
-        m_spotlightMarkerObject.model = &m_spotlightMarkerModel;
-
         ShaderBuilder defaultBuilder;
         defaultBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shader_vert.glsl");
         defaultBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shader_frag.glsl");
@@ -256,22 +253,10 @@ private:
             glm::radians(glm::vec3(35.0f, 160.0f, 0.0f)), 16.0f);
     }
 
-    void setReactorCamera()
-    {
-        m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT + 1.75f, 0.0f),
-            glm::radians(glm::vec3(20.0f, 155.0f, 0.0f)), 6.5f);
-    }
-
     void setReactorPanelCamera()
     {
         m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT + 1.32f, 1.03f),
             glm::radians(glm::vec3(5.0f, 180.0f, 0.0f)), 2.2f);
-    }
-
-    void setPlatformLogoCamera()
-    {
-        m_camera.setCamera(glm::vec3(0.0f, PLATFORM_HEIGHT, 4.4f),
-            glm::radians(glm::vec3(55.0f, 180.0f, 0.0f)), 2.8f);
     }
 
     void setReflectionShowcaseCamera()
@@ -290,17 +275,8 @@ private:
                 m_cameraMode = CameraMode::Overview;
             }
             ImGui::SameLine();
-            if (ImGui::Button("Reactor")) {
-                setReactorCamera();
-                m_cameraMode = CameraMode::Overview;
-            }
             if (ImGui::Button("Reactor panel")) {
                 setReactorPanelCamera();
-                m_cameraMode = CameraMode::Overview;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Platform logo")) {
-                setPlatformLogoCamera();
                 m_cameraMode = CameraMode::Overview;
             }
             if (ImGui::Button("Environment mapping")) {
@@ -314,7 +290,7 @@ private:
                 m_cameraMode = CameraMode::Top;
         }
 
-        if (ImGui::CollapsingHeader("Bezier curve", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Bezier curves (constant speed)", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Checkbox("Show path", &m_showPath);
             ImGui::Checkbox("Fly", &m_flyDrone);
         }
@@ -323,6 +299,7 @@ private:
             int shadingMode = static_cast<int>(m_shadingMode);
             if (ImGui::Combo("Shading", &shadingMode, "PBR\0Base color\0"))
                 m_shadingMode = static_cast<ShadingMode>(shadingMode);
+            ImGui::Checkbox("Emission", &m_enableEmission);
         }
 
         if (ImGui::CollapsingHeader("Material textures##Section", ImGuiTreeNodeFlags_DefaultOpen))
@@ -331,7 +308,7 @@ private:
         if (ImGui::CollapsingHeader("Normal mapping##Section", ImGuiTreeNodeFlags_DefaultOpen))
             ImGui::Checkbox("Normal mapping", &m_enableNormalMapping);
 
-        if (ImGui::CollapsingHeader("Environment mapping", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Environment mapping##Section", ImGuiTreeNodeFlags_DefaultOpen))
             ImGui::Checkbox("Environment reflections", &m_enableEnvironmentReflections);
 
         if (ImGui::CollapsingHeader("Shadows from multiple light sources", ImGuiTreeNodeFlags_DefaultOpen))
@@ -374,8 +351,6 @@ private:
 
         ImGui::SetNextItemWidth(sliderWidth);
         ImGui::SliderFloat("Ambient strength", &m_ambientStrength, 0.0f, 1.0f, "%.2f", clamped);
-        ImGui::Checkbox("Emission", &m_enableEmission);
-        ImGui::Checkbox("Show light marker", &m_showLightMarker);
     }
 
     void renderSunShadowMap()
@@ -504,10 +479,7 @@ private:
         for (const SceneObject& object : m_sceneObjects)
             drawObject(object);
 
-        if (m_showLightMarker)
-            drawSpotlightMarker();
-
-        // after the marker because the path binds its own trivial shader
+        // draw the path after the scene because it binds its own shader
         if (m_showPath)
             m_flightPath.draw(viewProjectionMatrix);
 
@@ -544,24 +516,6 @@ private:
 
         for (const GPUMesh& mesh : object.model->meshes)
             mesh.draw(m_defaultShader);
-    }
-
-    void drawSpotlightMarker()
-    {
-        const glm::vec3 direction = m_spotlight.direction();
-        glm::vec3 up(0.0f, 1.0f, 0.0f);
-        if (glm::abs(glm::dot(direction, up)) > 0.99f)
-            up = glm::vec3(0.0f, 0.0f, 1.0f);
-
-        // Inverting the light's view maps the marker's local -Z onto its aim.
-        m_spotlightMarkerObject.modelMatrix = glm::inverse(glm::lookAt(
-            m_spotlight.position, m_spotlight.position + direction, up));
-
-        // Base color keeps the debug marker visible independently of lighting.
-        const GLint shadingModeLocation = m_defaultShader.getUniformLocation("shadingMode");
-        glUniform1i(shadingModeLocation, static_cast<int>(ShadingMode::BaseColor));
-        drawObject(m_spotlightMarkerObject);
-        glUniform1i(shadingModeLocation, static_cast<int>(m_shadingMode));
     }
 
     Window m_window;
@@ -604,9 +558,6 @@ private:
     CameraMode m_cameraMode { CameraMode::Overview };
 
     std::vector<SceneObject> m_sceneObjects;
-    Model m_spotlightMarkerModel;
-    SceneObject m_spotlightMarkerObject {};
-    bool m_showLightMarker { false };
     ShadingMode m_shadingMode { ShadingMode::Pbr };
     bool m_enableEmission { true };
     bool m_enableMaterialTextures { true };
