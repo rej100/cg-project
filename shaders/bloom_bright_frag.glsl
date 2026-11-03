@@ -9,8 +9,6 @@ layout(location = 0) out vec4 fragColor;
 
 const float MAX_BLOOM_BRIGHTNESS = 20.0;
 
-x = 
-
 void main()
 {
     vec3 color = texture(sceneTexture, fragTexCoord).rgb;
