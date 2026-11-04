@@ -4,7 +4,7 @@
 #include <framework/shader.h>
 #include <glm/vec2.hpp>
 
-// the scene is rendered into a float framebuffer so colours above 1 survive.
+// the scene is rendered into a float framebuffer so colors above 1 survive.
 // the bright parts get blurred and added back on top before tone mapping to the screen
 class Bloom {
 public:

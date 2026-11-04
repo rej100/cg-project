@@ -1,7 +1,7 @@
 #include "bloom.h"
 
 // https://learnopengl.com/Advanced-Lighting/Bloom
-// basically the same idea but the blur runs at half resolution so the glow is wider for the same cost
+// basically the same idea but the blur runs at half resolution so the glow is wider at same cost
 
 namespace {
 

@@ -9,9 +9,8 @@ uniform float bloomStrength;
 in vec2 fragTexCoord;
 layout(location = 0) out vec4 fragColor;
 
-// aces filmic curve fit by krzysztof narkowicz
+// aces filmic curve fit by krzysztof narkowicz - reference in report!!
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
-// close to the identity for dark colours and rolls bright colours off smoothly towards 1
 vec3 toneMap(vec3 color)
 {
     const float a = 2.51;
